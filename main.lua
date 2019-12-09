@@ -8,6 +8,10 @@ function drawVerticalLine(x, y, y2, color)
 	end
 end
 
+function pack(...)
+	return { n = select("#", ...), ... }
+end
+
 
 
 function love.load(arg)
@@ -35,7 +39,7 @@ function love.load(arg)
 		colormap[x+1] = {}
 		for y=0,colormap_data:getHeight()-1 do
 			-- print(x,y)
-			colormap[x+1][y+1] = table.pack(colormap_data:getPixel(x, y))
+			colormap[x+1][y+1] = pack(colormap_data:getPixel(x, y))
 		end
 	end
 
@@ -121,8 +125,8 @@ function love.draw()
 	end);
 	love.graphics.setColor(1, 1, 1, 1)
 	love.graphics.draw(canvas,0,0,0,2,2);
-	love.graphics.draw(map,320*2,0,0,0.625,0.625)
-	love.graphics.circle("fill", (pos.x%1024)*0.625 + 640, (pos.y%1024)*0.625, 5, segments)
+	love.graphics.draw(map,0,240*2,0,0.625,0.625)
+	love.graphics.circle("fill", (pos.x%1024)*0.625, (pos.y%1024)*0.625 + 240*2, 5, segments)
 	love.graphics.print(love.timer.getFPS(), 200, 5)
 end
 
@@ -162,7 +166,7 @@ function love.update(dt)
 		height = sol + 10
 	end
 
-	require("lovebird").update()
+	-- require("lovebird").update()
 end
 
 function love.keypressed( key, scancode, isrepeat )
