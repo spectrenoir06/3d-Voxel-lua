@@ -15,11 +15,12 @@ function pack(...)
 end
 
 local colormap = {}
-local heightmap_1D = {}
 local heightmap_2D = {}
+local heightmap_2D_1 = {}
 
 local timer = 0
 local frame = 0
+local noise = love.math.noise
 
 function love.load(arg)
 	love.graphics.setLineStyle("rough")
@@ -28,13 +29,8 @@ function love.load(arg)
 	colormap_data  = love.image.newImageData("C1W.png")
 	map =  love.graphics.newImage(colormap_data)
 
-	for x=0, heightmap_data:getWidth()-1 do
-		-- heightmap[x+1] = {}
-		for y=0,heightmap_data:getHeight()-1 do
-			-- print(x,y)
-			heightmap_1D[x+1+y*heightmap_data:getHeight()] = heightmap_data:getPixel(x, y)*255
-		end
-	end
+	-- gen_map = love.graphics.newCanvas(1024, 1024)
+	gen_map_data = love.image.newImageData(1024,1024)
 
 	for x=0, heightmap_data:getWidth()-1 do
 		heightmap_2D[x+1] = {}
@@ -44,14 +40,42 @@ function love.load(arg)
 		end
 	end
 
+	local mul = 0.004
+	for x=0, 1024-1 do
+		heightmap_2D_1[x+1] = {}
+		-- colormap[x+1] = {}
+		for y=0, 1024-1 do
+			local v = 0
+			local max = 0
+				-- v = noise(x*mul+0.01, y*mul)
+				-- v = v + 0.5*noise(x*mul*2, y*mul*2)
+			for i=1, 10 do
+				max = max + (1 / i)
+				v = v + (1 / i * noise(x*i*mul, y*i*mul))
+			end
+			v = v / max
+			-- print(v)
+			v = math.max(v,0.4)
+			heightmap_2D_1[x+1][y+1] = v
 
-	-- for x=0, colormap_data:getWidth()-1 do
-	-- 	colormap[x+1] = {}
-	-- 	for y=0,colormap_data:getHeight()-1 do
-	-- 		-- print(x,y)
-	-- 		colormap[x+1][y+1] = pack(colormap_data:getPixel(x, y))
-	-- 	end
-	-- end
+			if v <= 0.4 then -- water
+				gen_map_data:setPixel(x,y, noise(x*0.1,y*0.1)*0.3, noise(x*0.1,y*0.1)*0.1,1)
+			elseif v > 0.75 then -- snow
+				gen_map_data:setPixel(x,y, 1,1,1)
+			elseif v >0.4 and v < 0.41 then -- beach
+				gen_map_data:setPixel(x,y, 1,0.91,0.79)
+			elseif v >0.6 and v < 0.75 then -- rock
+				gen_map_data:setPixel(x,y, 0.5*v, 0.5*v, 0.5*v)
+			else
+				gen_map_data:setPixel(x,y, 0, 1*v+noise(x*1,y*1)*0.02, 0)
+			end
+		end
+	end
+
+	
+
+
+	gen_map = love.graphics.newImage(gen_map_data)
 
 	canvas = love.graphics.newCanvas(320*2, 240*2)
 	canvas:setFilter("nearest", "nearest")
@@ -107,12 +131,17 @@ function render(p, phi, height, horizon, scale_height, distance, screen_width, s
 			local x = floor(pleft_x)%1024
 			local y = floor(pleft_y)%1024
 			-- print(x,y,i,ybuffer[i+1])
-			local height_on_screen = floor((height - heightmap_2D[x+1][y+1]) / z * scale_height + horizon)
+			local h = heightmap_2D_1[x+1][y+1]
+
+			local height_on_screen = floor((height - h*255) / z * scale_height + horizon)
 
 			local y2 = ybuffer[i+1]
 			-- print(y2)
 			if y2>0 and height_on_screen<y2 then
-				color(colormap_data:getPixel(x, y+(1024*frame)))
+				-- color(colormap_data:getPixel(x, y+(1024*frame)))
+				color(gen_map_data:getPixel(x, y))
+				-- color(h,0,0)
+				-- print(h)
 				rect("fill", i, height_on_screen, 1, y2-height_on_screen)
 				ybuffer[i+1] = height_on_screen
 			end
@@ -134,7 +163,7 @@ function love.draw()
 	end)
 	love.graphics.setColor(1, 1, 1, 1)
 	love.graphics.draw(canvas,0,0,0,1,1);
-	love.graphics.draw(map,0,240*2,0,0.625,0.625)
+	love.graphics.draw(gen_map,0,240*2,0,0.625,0.625)
 	love.graphics.circle("fill", (pos.x%1024)*0.625, (pos.y%1024)*0.625 + 240*2, 5, segments)
 	love.graphics.print(love.timer.getFPS(), 200, 5)
 end
