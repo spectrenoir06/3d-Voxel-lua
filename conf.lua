@@ -7,7 +7,7 @@ function love.conf(t)
 	t.externalstorage = false           -- True to save files (and read from the save directory) in external storage on Android (boolean)
 	t.gammacorrect = false              -- Enable gamma-correct rendering, when supported by the system (boolean)
 
-	t.audio.mixwithsystem = true        -- Keep background music playing when opening LOVE (boolean, iOS and Android only)
+	-- t.audio.mixwithsystem = true        -- Keep background music playing when opening LOVE (boolean, iOS and Android only)
 
 	t.window.title = ""-- The window title (string)
 	t.window.icon = nil                 -- Filepath to an image to use as the window's icon (string)
@@ -26,7 +26,7 @@ function love.conf(t)
 	t.window.x = nil                    -- The x-coordinate of the window's position in the specified display (number)
 	t.window.y = nil                    -- The y-coordinate of the window's position in the specified display (number)
 
-	t.modules.audio = true              -- Enable the audio module (boolean)
+	-- t.modules.audio = true              -- Enable the audio module (boolean)
 	t.modules.data = true               -- Enable the data module (boolean)
 	t.modules.event = true              -- Enable the event module (boolean)
 	t.modules.font = true               -- Enable the font module (boolean)
