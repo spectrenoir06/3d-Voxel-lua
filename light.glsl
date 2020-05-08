@@ -1,13 +1,13 @@
 #pragma language glsl3
 
 uniform vec3 sun;
-uniform Image map;
+// uniform Image map;
 uniform Image height_map;
 uniform float preci = 1;
 
 vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords)
 {
-	vec4 texturecolor = Texel(map, texture_coords);
+	vec4 texturecolor = Texel(tex, texture_coords);
 	float h = Texel(height_map, texture_coords).x;
 	// texturecolor.w = 1;
 	//

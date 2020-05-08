@@ -31,12 +31,13 @@ function gen_light(x,y,z)
 	shader_light:send("sun", Sun)
 	test_cv:renderTo(function()
 		love.graphics.setShader(shader_light)
-			love.graphics.draw(gen_map_color)
+			love.graphics.draw(gen_map_color_origin)
 		love.graphics.setShader()
 	end)
 
 	gen_map_color_data = test_cv:newImageData()
-	gen_map_color = love.graphics.newImage(gen_map_color_data)
+	gen_map_color:replacePixels(gen_map_color_data, nil, 1)
+	-- gen_map_color = love.graphics.newImage(gen_map_color_data)
 	gem_map_color_ptr = ffi.cast("struct ImageData_Pixel_RGBA8 *", gen_map_color_data:getFFIPointer())
 end
 
@@ -65,34 +66,34 @@ function gen_map(z)
 			-- heightmap_2D_1[x+1][y+1] = v*255
 
 			if v <= water_level then -- water
-				gen_map_color_data:setPixel(x,y, noise(x*0.1,y*0.1)*0.3, noise(x*0.1,y*0.1)*0.1,1, 1)
+				gen_map_color_origin_data:setPixel(x,y, noise(x*0.1,y*0.1)*0.3, noise(x*0.1,y*0.1)*0.1,1, 1)
 			elseif v> 0.75 then -- snow
-				gen_map_color_data:setPixel(x,y, 1,1,1, 1)
+				gen_map_color_origin_data:setPixel(x,y, 1,1,1, 1)
 			elseif v>water_level and v < water_level+ 0.01 then -- beach
-				gen_map_color_data:setPixel(x,y, 1,0.91,0.79, 1)
+				gen_map_color_origin_data:setPixel(x,y, 1,0.91,0.79, 1)
 			elseif v >0.6 and v < 0.75 then -- rock
-				gen_map_color_data:setPixel(x,y, 0.5*v, 0.5*v, 0.5*v, 1)
+				gen_map_color_origin_data:setPixel(x,y, 0.5*v, 0.5*v, 0.5*v, 1)
 			else
-				gen_map_color_data:setPixel(x,y, 0, 1*v+noise(x*1,y*1)*0.02, 0, 1)
+				gen_map_color_origin_data:setPixel(x,y, 0, 1*v+noise(x*1,y*1)*0.02, 0, 1)
 			end
 			gen_map_height_data:setPixel(x,y,v,v,v,1)
 			heightmap_2D[x+1][y+1] = v * 255
 		end
 	end
-	gen_map_color = love.graphics.newImage(gen_map_color_data)
+	gen_map_color_origin = love.graphics.newImage(gen_map_color_origin_data)
 	gen_map_height = love.graphics.newImage(gen_map_height_data)
-	shader_light:send("map", gen_map_color)
+	-- shader_light:send("map", gen_map_color_origin)
 	shader_light:send("height_map", gen_map_height)
 	shader_light:send("preci", 15.0)
 	gen_light(512, 512, 1.4)
 
-	function test( x, y, r, g, b, a )
-		if not colormap[x+1] then colormap[x+1] = {} end
-		colormap[x+1][y+1] = {r,g,b}
-		return r,g,b,a
-	end
+	-- function test( x, y, r, g, b, a )
+	-- 	if not colormap[x+1] then colormap[x+1] = {} end
+	-- 	colormap[x+1][y+1] = {r,g,b}
+	-- 	return r,g,b,a
+	-- end
 
-	gen_map_color_data:mapPixel(test)
+	-- gen_map_color_data:mapPixel(test)
 end
 
 function love.load(arg)
@@ -101,11 +102,13 @@ function love.load(arg)
 	heightmap_data = love.image.newImageData("C1W_HEIGHT.png")
 	colormap_data  = love.image.newImageData("C1W.png")
 	map =  love.graphics.newImage(colormap_data)
+	light_color = love.image.newImageData("light_color.png")
 
-	gen_map_color_data = love.image.newImageData(1024,1024)
+	gen_map_color_origin_data = love.image.newImageData(1024,1024)
 	gen_map_height_data = love.image.newImageData(1024,1024)
 
-	gem_map_color_ptr = ffi.cast("struct ImageData_Pixel_RGBA8 *", gen_map_color_data:getFFIPointer())
+	gen_map_color = love.graphics.newImage(gen_map_color_origin_data)
+
 	print(gem_map_color_ptr)
 	-- p.pointer[y * p.width + x]
 
@@ -212,12 +215,10 @@ function render(p, phi, height, horizon, scale_height, distance, screen_width, s
 
 			local y2 = ybuffer[i+1]
 			if y2>0 and height_on_screen<y2 then
+				color(gen_map_color_data:getPixel(x, y))
 
-				-- local r, g, b, a = gen_map_color_data:getPixel(x, y)
-				-- color(r,g,b,a)
-
-				local c= gem_map_color_ptr[y * 1024 + x]
-				color(c.r/255, c.g/255, c.b/255)
+				-- local c= gem_map_color_ptr[y * 1024 + x]
+				-- color(c.r/255, c.g/255, c.b/255)
 
 				-- color(colormap[x+1][y+1])
 
@@ -235,33 +236,28 @@ function render(p, phi, height, horizon, scale_height, distance, screen_width, s
 	end
 end
 
-function love.draw()
-	canvas:renderTo(function()
-		love.graphics.clear(56/255, 108/255, 193/255)
-		render(pos, dir:toPolar().x, height, vx, vy, dist, 320*2, 240*2)
-	end)
-	love.graphics.setColor(1, 1, 1, 1)
-	love.graphics.draw(canvas,0,0,0,1,1)
-
-	-- love.graphics.draw(test_cv,0,240*2,0,0.625,0.625)
-	-- love.graphics.setShader(shader_minimap)
-		love.graphics.draw(gen_map_color,0,240*2,0,0.625,0.625)
-	-- love.graphics.setShader()
-
-
-	-- love.graphics.setColor(1,1,1,1)
-	-- love.graphics.draw(ShadowMap,0,240*2,0,0.625,0.625)
-	-- love.graphics.setColor(1, 1, 1, 1)
-
-
-	love.graphics.circle("fill", (pos.x%1024)*0.625, (pos.y%1024)*0.625 + 240*2, 5, segments)
-	love.graphics.print(love.timer.getFPS(), 200, 5)
-end
 
 local time = 0
 
+function love.draw()
+	-- time = math.math.pi
+	local color = (math.sin(time)*16)%64
+	canvas:renderTo(function()
+		love.graphics.clear(light_color:getPixel(color ,0))
+		render(pos, dir:toPolar().x, height, vx, vy, dist, 320*2, 240*2)
+	end)
+
+	love.graphics.setColor(1,1,1,1)
+	love.graphics.setColor(light_color:getPixel(color, 1))
+	love.graphics.draw(canvas,0,0,0,1,1)
+	love.graphics.draw(gen_map_color,0,240*2,0,0.625,0.625)
+
+	love.graphics.circle("fill", (pos.x%1024)*0.625, (pos.y%1024)*0.625 + 240*2, 5, segments)
+	love.graphics.print(love.timer.getFPS(), 200, 5)
+	love.graphics.print(color.." "..math.sin(time)*16, 200, 30)
+end
+
 function love.update(dt)
-	time = time + dt
 	timer = timer + dt
 	if timer > 0.250 then
 		frame = (frame + 1)%4
@@ -295,12 +291,19 @@ function love.update(dt)
 	if love.keyboard.isDown("j") then vy = vy - 1 end
 
 	if love.keyboard.isDown("1") then
-		-- shader_light:send("preci", love.mouse.getY())
-		gen_light(512, 512+math.cos(time)*1024, math.sin(time)*2)
-
-		-- gen_light(love.mouse.getX()*1.6, (love.mouse.getY()-480)*1.6, 1.4)
+		time = love.mouse.getX()/640*math.pi*2
+		gen_light(512+math.cos(time)*2048, 512, math.sin(time)*8)
 	end
 
+	if love.keyboard.isDown("2") then
+		time = math.pi/2
+		gen_light(love.mouse.getX()*1.6, (love.mouse.getY()-480)*1.6, 1.4)
+	end
+
+	if play_time then
+		time = time + dt / 4
+		gen_light(512+math.cos(time)*2048, 512, math.sin(time)*8)
+	end
 
 	local sol = gen_map_height_data:getPixel(pos.x%1024, pos.y%1024)*255
 	--
@@ -314,8 +317,8 @@ end
 function love.keypressed( key, scancode, isrepeat )
 	print(key,scancode,isrepeat)
 
-	if key == "2" then
-		gen_map(time+0.01)
+	if key == "3" then
+		play_time = not play_time
 	end
 
 	if key == "escape" or key == "c" then
