@@ -1,4 +1,5 @@
-vector = require "vector"
+local vector = require "vector"
+
 local ffi = require "ffi"
 
 function drawVerticalLine(x, y, y2, color)
@@ -29,53 +30,91 @@ function love.load(arg)
 	colormap_data  = love.image.newImageData("C1W.png")
 	map =  love.graphics.newImage(colormap_data)
 
-	-- gen_map = love.graphics.newCanvas(1024, 1024)
-	gen_map_data = love.image.newImageData(1024,1024)
+	gen_map_color_data = love.image.newImageData(1024,1024)
+	gen_map_height_data = love.image.newImageData(1024,1024)
 
-	for x=0, heightmap_data:getWidth()-1 do
-		heightmap_2D[x+1] = {}
-		for y=0,heightmap_data:getHeight()-1 do
-			-- print(x,y)
-			heightmap_2D[x+1][y+1] = heightmap_data:getPixel(x, y)*255
-		end
-	end
+	-- for x=0, heightmap_data:getWidth()-1 do
+	-- 	heightmap_2D[x+1] = {}
+	-- 	for y=0,heightmap_data:getHeight()-1 do
+	-- 		-- print(x,y)
+	-- 		heightmap_2D[x+1][y+1] = heightmap_data:getPixel(x, y)*255
+	-- 	end
+	-- end
 
-	local mul = 0.004
+	local mul = 0.003
 	for x=0, 1024-1 do
-		heightmap_2D_1[x+1] = {}
+		-- heightmap_2D_1[x+1] = {}
 		-- colormap[x+1] = {}
 		for y=0, 1024-1 do
 			local v = 0
+			local val = 1
 			local max = 0
-				-- v = noise(x*mul+0.01, y*mul)
-				-- v = v + 0.5*noise(x*mul*2, y*mul*2)
 			for i=1, 10 do
-				max = max + (1 / i)
-				v = v + (1 / i * noise(x*i*mul, y*i*mul))
+				-- print(val)
+				max = max + val
+				v = v + (val * noise(x*i*mul+100.3, y*i*mul+0.333))
+				val = val * 0.5
 			end
 			v = v / max
 			-- print(v)
-			v = math.max(v,0.4)
-			heightmap_2D_1[x+1][y+1] = v
 
-			if v <= 0.4 then -- water
-				gen_map_data:setPixel(x,y, noise(x*0.1,y*0.1)*0.3, noise(x*0.1,y*0.1)*0.1,1)
-			elseif v > 0.75 then -- snow
-				gen_map_data:setPixel(x,y, 1,1,1)
-			elseif v >0.4 and v < 0.41 then -- beach
-				gen_map_data:setPixel(x,y, 1,0.91,0.79)
+			local water_level = 0.35
+
+			v = math.max(v,water_level)
+			-- heightmap_2D_1[x+1][y+1] = v*255
+
+			if v <= water_level then -- water
+				gen_map_color_data:setPixel(x,y, noise(x*0.1,y*0.1)*0.3, noise(x*0.1,y*0.1)*0.1,1, 1)
+			elseif v> 0.75 then -- snow
+				gen_map_color_data:setPixel(x,y, 1,1,1, 1)
+			elseif v>water_level and v < water_level+ 0.01 then -- beach
+				gen_map_color_data:setPixel(x,y, 1,0.91,0.79, 1)
 			elseif v >0.6 and v < 0.75 then -- rock
-				gen_map_data:setPixel(x,y, 0.5*v, 0.5*v, 0.5*v)
+				gen_map_color_data:setPixel(x,y, 0.5*v, 0.5*v, 0.5*v, 1)
 			else
-				gen_map_data:setPixel(x,y, 0, 1*v+noise(x*1,y*1)*0.02, 0)
+				gen_map_color_data:setPixel(x,y, 0, 1*v+noise(x*1,y*1)*0.02, 0, 1)
 			end
+			gen_map_height_data:setPixel(x,y,v,v,v,1)
 		end
 	end
 
-	
+	-- for x=0, 1024-1 do
+	-- 	-- heightmap_2D_1[x+1] = {}
+	-- 	for y=0, 1024-1 do
+	-- 		gen_map_data:setPixel(x,y, 0.5, 0.5, 0.5, 0)
+	-- 	end
+	-- end
+	--
+	-- for x=400, 450 do
+	-- 	for y=400, 450 do
+	-- 		gen_map_data:setPixel(x,y, 1, 1, 1, 1/255*50)
+	-- 	end
+	-- end
 
 
-	gen_map = love.graphics.newImage(gen_map_data)
+	-- for i=1, 1000 do
+	-- 	local x = math.random(10, 1000)
+	-- 	local y = math.random(10, 1000)
+	-- 	local h = heightmap_2D_1[x+1][y+1]
+	-- 	for px=1,2 do
+	-- 		for py=1,2 do
+	-- 			print(x,y,px,py)
+	-- 			heightmap_2D_1[x+px+1][y+py+1] = h + 0.5
+	-- 			gen_map_data:setPixel(x+px,y+py, 1, 1, 0.7)
+	-- 		end
+	-- 	end
+	-- end
+
+
+
+	gen_map_color = love.graphics.newImage(gen_map_color_data)
+	gen_map_height = love.graphics.newImage(gen_map_height_data)
+
+	shader_light = love.graphics.newShader("light.glsl")
+	shader_light:send("map", gen_map_color)
+	shader_light:send("height_map", gen_map_height)
+
+	test_cv = love.graphics.newCanvas(1024,1024)
 
 	canvas = love.graphics.newCanvas(320*2, 240*2)
 	canvas:setFilter("nearest", "nearest")
@@ -131,15 +170,19 @@ function render(p, phi, height, horizon, scale_height, distance, screen_width, s
 			local x = floor(pleft_x)%1024
 			local y = floor(pleft_y)%1024
 			-- print(x,y,i,ybuffer[i+1])
-			local h = heightmap_2D_1[x+1][y+1]
-
-			local height_on_screen = floor((height - h*255) / z * scale_height + horizon)
+			local r, g, b, a = gen_map_color_data:getPixel(x, y)
+			local h = gen_map_height_data:getPixel(x, y)
+			h = h * 255
+			local height_on_screen = floor((height - h) / z * scale_height + horizon)
 
 			local y2 = ybuffer[i+1]
 			-- print(y2)
 			if y2>0 and height_on_screen<y2 then
 				-- color(colormap_data:getPixel(x, y+(1024*frame)))
-				color(gen_map_data:getPixel(x, y))
+
+				-- local light = ShadowMap_data:getPixel(x, y) / 4 + 0.75
+				local light = 1
+				color(r*light,g*light ,b*light)
 				-- color(h,0,0)
 				-- print(h)
 				rect("fill", i, height_on_screen, 1, y2-height_on_screen)
@@ -162,8 +205,19 @@ function love.draw()
 		render(pos, dir:toPolar().x, height, vx, vy, dist, 320*2, 240*2)
 	end)
 	love.graphics.setColor(1, 1, 1, 1)
-	love.graphics.draw(canvas,0,0,0,1,1);
-	love.graphics.draw(gen_map,0,240*2,0,0.625,0.625)
+	love.graphics.draw(canvas,0,0,0,1,1)
+
+	-- love.graphics.draw(test_cv,0,240*2,0,0.625,0.625)
+	-- love.graphics.setShader(shader_minimap)
+		love.graphics.draw(gen_map_color,0,240*2,0,0.625,0.625)
+	-- love.graphics.setShader()
+
+
+	-- love.graphics.setColor(1,1,1,1)
+	-- love.graphics.draw(ShadowMap,0,240*2,0,0.625,0.625)
+	-- love.graphics.setColor(1, 1, 1, 1)
+
+
 	love.graphics.circle("fill", (pos.x%1024)*0.625, (pos.y%1024)*0.625 + 240*2, 5, segments)
 	love.graphics.print(love.timer.getFPS(), 200, 5)
 end
@@ -201,17 +255,42 @@ function love.update(dt)
 	if love.keyboard.isDown("h") then vy = vy + 1 end
 	if love.keyboard.isDown("j") then vy = vy - 1 end
 
-	local sol = heightmap_2D[math.floor(pos.x%1023)+1][math.floor(pos.y%1023)+1]
+	local Sun = {love.mouse.getX()*1.6, 1, (love.mouse.getY()-480)*1.6}
+	shader_light:send("sun", Sun)
+	test_cv:renderTo(function()
+		love.graphics.setShader(shader_light)
+			love.graphics.draw(gen_map_color)
+		love.graphics.setShader()
+	end)
 
-	if height < sol + 10 then
-		height = sol + 10
-	end
+	gen_map_color_data = test_cv:newImageData()
+	gen_map_color = love.graphics.newImage(gen_map_color_data)
+
+	-- local sol = heightmap_2D_1[math.floor(pos.x%1023)+1][math.floor(pos.y%1023)+1]
+	--
+	-- if height < sol + 10 then
+	-- 	height = sol + 10
+	-- end
 
 	-- require("lovebird").update()
 end
 
 function love.keypressed( key, scancode, isrepeat )
 	print(key,scancode,isrepeat)
+	if key == "1" then
+		print(love.mouse.getX(),love.mouse.getY())
+		local Sun = {love.mouse.getX()*1.6, 0.7, (love.mouse.getY()-480)*1.6}
+		shader_light:send("sun", Sun)
+		test_cv:renderTo(function()
+			love.graphics.setShader(shader_light)
+				love.graphics.draw(gen_map_color)
+			love.graphics.setShader()
+		end)
+
+		gen_map_color_data = test_cv:newImageData()
+		gen_map_color = love.graphics.newImage(gen_map_color_data)
+
+	end
 	if key == "escape" or key == "c" then
 		love.event.quit()
 	end
