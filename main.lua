@@ -22,32 +22,29 @@ end
 
 local colormap = {}
 local heightmap_2D = {}
-local heightmap_2D_1 = {}
 
 local timer = 0
 local frame = 0
 
-function love.load(arg)
-	love.graphics.setLineStyle("rough")
-	love.graphics.setLineWidth(1)
-	heightmap_data = love.image.newImageData("C1W_HEIGHT.png")
-	colormap_data  = love.image.newImageData("C1W.png")
-	map =  love.graphics.newImage(colormap_data)
+function gen_light(x,y,z)
+	local Sun = {x,y,z}
+	shader_light:send("sun", Sun)
+	test_cv:renderTo(function()
+		love.graphics.setShader(shader_light)
+			love.graphics.draw(gen_map_color)
+		love.graphics.setShader()
+	end)
 
-	gen_map_color_data = love.image.newImageData(1024,1024)
-	gen_map_height_data = love.image.newImageData(1024,1024)
+	gen_map_color_data = test_cv:newImageData()
+	gen_map_color = love.graphics.newImage(gen_map_color_data)
+	gem_map_color_ptr = ffi.cast("struct ImageData_Pixel_RGBA8 *", gen_map_color_data:getFFIPointer())
+end
 
-	-- for x=0, heightmap_data:getWidth()-1 do
-	-- 	heightmap_2D[x+1] = {}
-	-- 	for y=0,heightmap_data:getHeight()-1 do
-	-- 		-- print(x,y)
-	-- 		heightmap_2D[x+1][y+1] = heightmap_data:getPixel(x, y)*255
-	-- 	end
-	-- end
 
+function gen_map(z)
 	local mul = 0.003
 	for x=0, 1024-1 do
-		-- heightmap_2D_1[x+1] = {}
+		heightmap_2D[x+1] = {}
 		-- colormap[x+1] = {}
 		for y=0, 1024-1 do
 			local v = 0
@@ -79,8 +76,52 @@ function love.load(arg)
 				gen_map_color_data:setPixel(x,y, 0, 1*v+noise(x*1,y*1)*0.02, 0, 1)
 			end
 			gen_map_height_data:setPixel(x,y,v,v,v,1)
+			heightmap_2D[x+1][y+1] = v * 255
 		end
 	end
+	gen_map_color = love.graphics.newImage(gen_map_color_data)
+	gen_map_height = love.graphics.newImage(gen_map_height_data)
+	shader_light:send("map", gen_map_color)
+	shader_light:send("height_map", gen_map_height)
+	shader_light:send("preci", 15.0)
+	gen_light(512, 512, 1.4)
+
+	function test( x, y, r, g, b, a )
+		if not colormap[x+1] then colormap[x+1] = {} end
+		colormap[x+1][y+1] = {r,g,b}
+		return r,g,b,a
+	end
+
+	gen_map_color_data:mapPixel(test)
+end
+
+function love.load(arg)
+	love.graphics.setLineStyle("rough")
+	love.graphics.setLineWidth(1)
+	heightmap_data = love.image.newImageData("C1W_HEIGHT.png")
+	colormap_data  = love.image.newImageData("C1W.png")
+	map =  love.graphics.newImage(colormap_data)
+
+	gen_map_color_data = love.image.newImageData(1024,1024)
+	gen_map_height_data = love.image.newImageData(1024,1024)
+
+	gem_map_color_ptr = ffi.cast("struct ImageData_Pixel_RGBA8 *", gen_map_color_data:getFFIPointer())
+	print(gem_map_color_ptr)
+	-- p.pointer[y * p.width + x]
+
+	shader_light = love.graphics.newShader("light.glsl")
+
+	test_cv = love.graphics.newCanvas(1024,1024)
+
+	gen_map()
+
+	-- for x=0, heightmap_data:getWidth()-1 do
+	-- 	heightmap_2D[x+1] = {}
+	-- 	for y=0,heightmap_data:getHeight()-1 do
+	-- 		-- print(x,y)
+	-- 		heightmap_2D[x+1][y+1] = heightmap_data:getPixel(x, y)*255
+	-- 	end
+	-- end
 
 	-- for x=0, 1024-1 do
 	-- 	-- heightmap_2D_1[x+1] = {}
@@ -108,17 +149,6 @@ function love.load(arg)
 	-- 		end
 	-- 	end
 	-- end
-
-
-
-	gen_map_color = love.graphics.newImage(gen_map_color_data)
-	gen_map_height = love.graphics.newImage(gen_map_height_data)
-
-	shader_light = love.graphics.newShader("light.glsl")
-	shader_light:send("map", gen_map_color)
-	shader_light:send("height_map", gen_map_height)
-
-	test_cv = love.graphics.newCanvas(1024,1024)
 
 	canvas = love.graphics.newCanvas(320*2, 240*2)
 	canvas:setFilter("nearest", "nearest")
@@ -175,14 +205,22 @@ function render(p, phi, height, horizon, scale_height, distance, screen_width, s
 		for i=0, screen_width-1 do
 			local x = floor(pleft_x)%1024
 			local y = floor(pleft_y)%1024
-			-- print(x,y,i,ybuffer[i+1])
-			local r, g, b, a = gen_map_color_data:getPixel(x, y)
-			local h = gen_map_height_data:getPixel(x, y) * 255
+
+			-- local h = gen_map_height_data:getPixel(x, y) * 255
+			local h = heightmap_2D[x+1][y+1]
 			local height_on_screen = floor((height - h) / z * scale_height + horizon)
 
 			local y2 = ybuffer[i+1]
 			if y2>0 and height_on_screen<y2 then
-				color(r,g,b)
+
+				-- local r, g, b, a = gen_map_color_data:getPixel(x, y)
+				-- color(r,g,b,a)
+
+				local c= gem_map_color_ptr[y * 1024 + x]
+				color(c.r/255, c.g/255, c.b/255)
+
+				-- color(colormap[x+1][y+1])
+
 				rect("fill", i, height_on_screen, 1, y2-height_on_screen)
 				ybuffer[i+1] = height_on_screen
 			end
@@ -220,7 +258,10 @@ function love.draw()
 	love.graphics.print(love.timer.getFPS(), 200, 5)
 end
 
+local time = 0
+
 function love.update(dt)
+	time = time + dt
 	timer = timer + dt
 	if timer > 0.250 then
 		frame = (frame + 1)%4
@@ -253,16 +294,13 @@ function love.update(dt)
 	if love.keyboard.isDown("h") then vy = vy + 1 end
 	if love.keyboard.isDown("j") then vy = vy - 1 end
 
-	-- local Sun = {love.mouse.getX()*1.6, 3, (love.mouse.getY()-480)*1.6}
-	-- shader_light:send("sun", Sun)
-	-- test_cv:renderTo(function()
-	-- 	love.graphics.setShader(shader_light)
-	-- 		love.graphics.draw(gen_map_color)
-	-- 	love.graphics.setShader()
-	-- end)
-	--
-	-- gen_map_color_data = test_cv:newImageData()
-	-- gen_map_color = love.graphics.newImage(gen_map_color_data)
+	if love.keyboard.isDown("1") then
+		-- shader_light:send("preci", love.mouse.getY())
+		gen_light(512, 512+math.cos(time)*1024, math.sin(time)*2)
+
+		-- gen_light(love.mouse.getX()*1.6, (love.mouse.getY()-480)*1.6, 1.4)
+	end
+
 
 	local sol = gen_map_height_data:getPixel(pos.x%1024, pos.y%1024)*255
 	--
@@ -275,20 +313,11 @@ end
 
 function love.keypressed( key, scancode, isrepeat )
 	print(key,scancode,isrepeat)
-	if key == "1" then
-		print(love.mouse.getX(),love.mouse.getY())
-		local Sun = {love.mouse.getX()*1.6, 1.4, (love.mouse.getY()-480)*1.6}
-		shader_light:send("sun", Sun)
-		test_cv:renderTo(function()
-			love.graphics.setShader(shader_light)
-				love.graphics.draw(gen_map_color)
-			love.graphics.setShader()
-		end)
 
-		gen_map_color_data = test_cv:newImageData()
-		gen_map_color = love.graphics.newImage(gen_map_color_data)
-
+	if key == "2" then
+		gen_map(time+0.01)
 	end
+
 	if key == "escape" or key == "c" then
 		love.event.quit()
 	end
