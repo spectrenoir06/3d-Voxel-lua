@@ -2,6 +2,11 @@ local vector = require "vector"
 
 local ffi = require "ffi"
 
+local floor = math.floor
+local sin = math.sin
+local cos = math.cos
+local noise = love.math.noise
+
 function drawVerticalLine(x, y, y2, color)
 	if y2>0 and y <= y2 then
 		-- print(x,y, y2, y2-y)
@@ -21,7 +26,6 @@ local heightmap_2D_1 = {}
 
 local timer = 0
 local frame = 0
-local noise = love.math.noise
 
 function love.load(arg)
 	love.graphics.setLineStyle("rough")
@@ -121,7 +125,7 @@ function love.load(arg)
 
 	pos = vector(512, 512)
 	dir = vector(1,0)
-	height = 100
+	height = 250
 	-- rot = 0
 	dist = 550
 	vx, vy = 120, 300
@@ -130,9 +134,8 @@ end
 
 function render(p, phi, height, horizon, scale_height, distance, screen_width, screen_height)
 
-	local floor = math.floor
-	local sinphi = math.sin(phi)
-	local cosphi = math.cos(phi)
+	local sinphi = sin(phi)
+	local cosphi = cos(phi)
 	local x = p.x
 	local y = p.y
 
@@ -154,11 +157,15 @@ function render(p, phi, height, horizon, scale_height, distance, screen_width, s
 	while z < distance do
 		-- print(z)
 		-- Find line on map. This calculation corresponds to a field of view of 90°
-		local pleft_x = -cosphi*z - sinphi*z + x
-		local pleft_y =  sinphi*z - cosphi*z + y
 
-		local pright_x =  cosphi*z - sinphi*z + p.x
-		local pright_y = -sinphi*z - cosphi*z + p.y
+		local cosphi_mul = cosphi*z
+		local sinphi_mul = sinphi*z
+
+		local pleft_x = -cosphi_mul - sinphi_mul + x
+		local pleft_y =  sinphi_mul - cosphi_mul + y
+
+		local pright_x =  cosphi_mul - sinphi_mul + x
+		local pright_y = -sinphi_mul - cosphi_mul + y
 
 		-- segment the line
 		local dx = (pright_x - pleft_x) / screen_width
@@ -166,25 +173,16 @@ function render(p, phi, height, horizon, scale_height, distance, screen_width, s
 
 		-- Raster line and draw a vertical line for each segment
 		for i=0, screen_width-1 do
-			local ybuff = screen_height
 			local x = floor(pleft_x)%1024
 			local y = floor(pleft_y)%1024
 			-- print(x,y,i,ybuffer[i+1])
 			local r, g, b, a = gen_map_color_data:getPixel(x, y)
-			local h = gen_map_height_data:getPixel(x, y)
-			h = h * 255
+			local h = gen_map_height_data:getPixel(x, y) * 255
 			local height_on_screen = floor((height - h) / z * scale_height + horizon)
 
 			local y2 = ybuffer[i+1]
-			-- print(y2)
 			if y2>0 and height_on_screen<y2 then
-				-- color(colormap_data:getPixel(x, y+(1024*frame)))
-
-				-- local light = ShadowMap_data:getPixel(x, y) / 4 + 0.75
-				local light = 1
-				color(r*light,g*light ,b*light)
-				-- color(h,0,0)
-				-- print(h)
+				color(r,g,b)
 				rect("fill", i, height_on_screen, 1, y2-height_on_screen)
 				ybuffer[i+1] = height_on_screen
 			end
@@ -255,22 +253,22 @@ function love.update(dt)
 	if love.keyboard.isDown("h") then vy = vy + 1 end
 	if love.keyboard.isDown("j") then vy = vy - 1 end
 
-	local Sun = {love.mouse.getX()*1.6, 1, (love.mouse.getY()-480)*1.6}
-	shader_light:send("sun", Sun)
-	test_cv:renderTo(function()
-		love.graphics.setShader(shader_light)
-			love.graphics.draw(gen_map_color)
-		love.graphics.setShader()
-	end)
-
-	gen_map_color_data = test_cv:newImageData()
-	gen_map_color = love.graphics.newImage(gen_map_color_data)
-
-	-- local sol = heightmap_2D_1[math.floor(pos.x%1023)+1][math.floor(pos.y%1023)+1]
+	-- local Sun = {love.mouse.getX()*1.6, 3, (love.mouse.getY()-480)*1.6}
+	-- shader_light:send("sun", Sun)
+	-- test_cv:renderTo(function()
+	-- 	love.graphics.setShader(shader_light)
+	-- 		love.graphics.draw(gen_map_color)
+	-- 	love.graphics.setShader()
+	-- end)
 	--
-	-- if height < sol + 10 then
-	-- 	height = sol + 10
-	-- end
+	-- gen_map_color_data = test_cv:newImageData()
+	-- gen_map_color = love.graphics.newImage(gen_map_color_data)
+
+	local sol = gen_map_height_data:getPixel(pos.x%1024, pos.y%1024)*255
+	--
+	if height < sol + 10 then
+		height = sol + 10
+	end
 
 	-- require("lovebird").update()
 end
@@ -279,7 +277,7 @@ function love.keypressed( key, scancode, isrepeat )
 	print(key,scancode,isrepeat)
 	if key == "1" then
 		print(love.mouse.getX(),love.mouse.getY())
-		local Sun = {love.mouse.getX()*1.6, 0.7, (love.mouse.getY()-480)*1.6}
+		local Sun = {love.mouse.getX()*1.6, 1.4, (love.mouse.getY()-480)*1.6}
 		shader_light:send("sun", Sun)
 		test_cv:renderTo(function()
 			love.graphics.setShader(shader_light)

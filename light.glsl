@@ -23,7 +23,7 @@ vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords)
 	{
 		pos += LightDir;
 
-		float LerpX = round(pos.x);
+		// float LerpX = round(pos.x);
 		// float LerpZ = round(pos.z);
 		float c = Texel(height_map, vec2(pos.x/1024.0, pos.z/1024.0)).x;
 		if(pos.y <= c) {
