@@ -8,16 +8,16 @@ local cos = math.cos
 local noise = love.math.noise
 local TAU = math.pi*2
 
-local size = 512
+local size = 1024
 
 function torusnoise(x,y, dens)
 	local angle_x = TAU * x
 	local angle_y = TAU * y
 	return noise(
-		cos(angle_x) / TAU* dens,
-		sin(angle_x) / TAU* dens,
-		cos(angle_y) / TAU* dens,
-		sin(angle_y) / TAU* dens
+		cos(angle_x) / TAU * dens,
+		sin(angle_x) / TAU * dens,
+		cos(angle_y) / TAU * dens,
+		sin(angle_y) / TAU * dens
 	)
 end
 
@@ -44,6 +44,30 @@ function gen_light(x,y,z)
 	gen_map_color:replacePixels(gen_map_color_data, nil, 1)
 	-- gen_map_color = love.graphics.newImage(gen_map_color_data)
 	-- gem_map_color_ptr = ffi.cast("struct ImageData_Pixel_RGBA8 *", gen_map_color_data:getFFIPointer())
+end
+
+function gen_map_shader(dens)
+
+	-- shader_gen:send("Utime", time)
+
+	shader_gen:send("dens", dens or 1)
+
+	test_cv:renderTo(function()
+		love.graphics.clear(1,0,0,1)
+		love.graphics.setShader(shader_gen)
+			love.graphics.setBlendMode("replace","premultiplied")
+			love.graphics.draw(gen_map_color,0,0)
+			-- love.graphics.rectangle(, 0, 0, size, size)
+		love.graphics.setShader()
+	end)
+	love.graphics.setBlendMode("alpha")
+
+	gen_map_color_origin_data = test_cv:newImageData()
+	gen_map_color:replacePixels(gen_map_color_origin_data, nil, 1)
+
+	-- shader_light:send("height_map", gen_map_height)
+	-- shader_light:send("preci", 0.02)
+	-- gen_light(0.5, 0.5, 1.4)
 end
 
 
@@ -94,7 +118,7 @@ function gen_map(octa)
 			v = math.max(v, water_level)
 			-- heightmap_2D_1[x+1][y+1] = v*255
 
-			local r, g, b = biome_color:getPixel(math.max(math.min(v2,1),0)*197, math.min(1-v, 1)*197)
+			local r, g, b = biome_color_data:getPixel(math.max(math.min(v2,1),0)*197, math.min(1-v, 1)*197)
 			gen_map_color_origin_data:setPixel(x,y, r+noise(x*1,y*1)*0.05	, g+noise(x*1,y*1)*0.05	, b+noise(x*1,y*1)*0.05	, 1)
 
 			-- if v <= water_level then -- water
@@ -133,14 +157,6 @@ function gen_map(octa)
 	shader_light:send("height_map", gen_map_height)
 	shader_light:send("preci", 0.02)
 	gen_light(0.5, 0.5, 1.4)
-
-	-- function test( x, y, r, g, b, a )
-	-- 	if not colormap[x+1] then colormap[x+1] = {} end
-	-- 	colormap[x+1][y+1] = {r,g,b}
-	-- 	return r,g,b,a
-	-- end
-
-	-- gen_map_color_data:mapPixel(test)
 end
 
 function love.load(arg)
@@ -156,7 +172,9 @@ function love.load(arg)
 	map =  love.graphics.newImage(colormap_data)
 	light_color = love.image.newImageData("light_color.png")
 
-	biome_color = love.image.newImageData("biome.png")
+	biome_color_data = love.image.newImageData("biome.png")
+	biome_color = love.graphics.newImage(biome_color_data)
+	biome_color_test = love.graphics.newImage("biome_test.png")
 
 	gen_map_color_origin_data = love.image.newImageData(size,size)
 	gen_map_height_data = love.image.newImageData(size,size)
@@ -168,39 +186,13 @@ function love.load(arg)
 
 	shader_light = love.graphics.newShader("light.glsl")
 
+	shader_gen = love.graphics.newShader("gen_map.glsl")
+	shader_gen:send("biome", biome_color)
+
 	test_cv = love.graphics.newCanvas(size,size)
 
-	gen_map(8)
-
-	-- for x=0, heightmap_data:getWidth()-1 do
-	-- 	heightmap_2D[x+1] = {}
-	-- 	for y=0,heightmap_data:getHeight()-1 do
-	-- 		-- print(x,y)
-	-- 		heightmap_2D[x+1][y+1] = heightmap_data:getPixel(x, y)*255
-	-- 	end
-	-- end
-
-	-- for x=0, size-1 do
-	-- 	-- heightmap_2D_1[x+1] = {}
-	-- 	for y=0, size-1 do
-	-- 		gen_map_data:setPixel(x,y, 0.5, 0.5, 0.5, 0)
-	-- 	end
-	-- end
-
-
-
-	-- for i=1, 1000 do
-	-- 	local x = math.random(10, 1000)
-	-- 	local y = math.random(10, 1000)
-	-- 	local h = heightmap_2D_1[x+1][y+1]
-	-- 	for px=1,2 do
-	-- 		for py=1,2 do
-	-- 			print(x,y,px,py)
-	-- 			heightmap_2D_1[x+px+1][y+py+1] = h + 0.5
-	-- 			gen_map_data:setPixel(x+px,y+py, 1, 1, 0.7)
-	-- 		end
-	-- 	end
-	-- end
+	-- gen_map(8)
+	gen_map_shader()
 
 	canvas = love.graphics.newCanvas(320*2, 240*2)
 	canvas:setFilter("nearest", "nearest")
@@ -260,13 +252,15 @@ function render(p, phi, height, horizon, scale_height, distance, screen_width, s
 			local y = floor(pleft_y)%size
 			-- print(pleft_x)
 
+			local r,g,b,h = gen_map_color_origin_data:getPixel(x, y)
 			-- local h = gen_map_height_data:getPixel(x, y) * 255
-			local h = heightmap_2D[x+1][y+1]
-			local height_on_screen = floor((height - h) / z * scale_height + horizon)
+			-- local h = heightmap_2D[x+1][y+1]
+			local height_on_screen = floor((height - h*255) / z * scale_height + horizon)
 
 			local y2 = ybuffer[i+1]
 			if y2>0 and height_on_screen<y2 then
-				color(gen_map_color_data:getPixel(x, y))
+				-- print(r,g,b)
+				color(r,g,b)
 
 				-- local c= gem_map_color_ptr[y * size + x]
 				-- color(c.r/255, c.g/255, c.b/255)
@@ -301,7 +295,12 @@ function love.draw()
 	love.graphics.setColor(1,1,1,1)
 	love.graphics.setColor(light_color:getPixel(color, 1))
 	love.graphics.draw(canvas,0,0,0,2,2)
+
+	love.graphics.setBlendMode("replace","premultiplied")
 	love.graphics.draw(gen_map_color,320*2,0,0,240*2/size,240*2/size)
+	love.graphics.setBlendMode("alpha")
+
+
 
 	love.graphics.circle("fill", (pos.x%size)*240*2/size + 320*2, (pos.y%size)*240*2/size, 5, segments)
 	love.graphics.print(love.timer.getFPS(), 10, 10)
@@ -349,6 +348,13 @@ function love.update(dt)
 	if love.keyboard.isDown("2") then
 		time = math.pi/2
 		gen_light((love.mouse.getX()-320*2)/(240*2), love.mouse.getY()/(240*2), 2)
+	end
+
+	if  love.keyboard.isDown("6") then
+		local dens = love.mouse.getX()/640*10
+		gen_map_shader(dens)
+		print(dens)
+		vy = 255 / dens
 	end
 
 	if play_time then
