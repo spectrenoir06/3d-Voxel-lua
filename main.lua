@@ -8,7 +8,7 @@ local cos = math.cos
 local noise = love.math.noise
 local TAU = math.pi*2
 
-local size = 64
+local size = 512
 
 function torusnoise(x,y, dens)
 	local angle_x = TAU * x
@@ -72,7 +72,7 @@ function gen_map(octa)
 			local v2 = 0
 			local val = 1
 			local max = 0
-			for i=1, octa or 10 do
+			for i=1, 3 do
 				-- print(val)
 				max = max + val
 				v2 = v2 + (val * torusnoise(x/size, y/size, 4/val))
@@ -94,7 +94,7 @@ function gen_map(octa)
 			v = math.max(v, water_level)
 			-- heightmap_2D_1[x+1][y+1] = v*255
 
-			local r, g, b = biome_color:getPixel(v2*197, math.min(1-v, 1)*197)
+			local r, g, b = biome_color:getPixel(math.max(math.min(v2,1),0)*197, math.min(1-v, 1)*197)
 			gen_map_color_origin_data:setPixel(x,y, r+noise(x*1,y*1)*0.05	, g+noise(x*1,y*1)*0.05	, b+noise(x*1,y*1)*0.05	, 1)
 
 			-- if v <= water_level then -- water
@@ -258,6 +258,7 @@ function render(p, phi, height, horizon, scale_height, distance, screen_width, s
 		for i=0, screen_width-1 do
 			local x = floor(pleft_x)%size
 			local y = floor(pleft_y)%size
+			-- print(pleft_x)
 
 			-- local h = gen_map_height_data:getPixel(x, y) * 255
 			local h = heightmap_2D[x+1][y+1]
