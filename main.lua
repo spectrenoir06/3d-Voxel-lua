@@ -8,7 +8,7 @@ local cos = math.cos
 local noise = love.math.noise
 local TAU = math.pi*2
 
-local size = 16384/8
+local size = 64
 
 function torusnoise(x,y, dens)
 	local angle_x = TAU * x
@@ -66,30 +66,48 @@ function gen_map(octa)
 			end
 			v = v / max
 			v = v*2
-			v = math.max(v-0.60, 0)
+			v = math.max(v-0.70, 0)
 			v = math.pow(v, 2)
+
+			local v2 = 0
+			local val = 1
+			local max = 0
+			for i=1, octa or 10 do
+				-- print(val)
+				max = max + val
+				v2 = v2 + (val * torusnoise(x/size, y/size, 4/val))
+				val = val * 0.5
+			end
+			v2 = v2 / max
+			v2 = v2*2.3
+			v2 = math.max(v2-0.70, 0)
+			v2 = math.pow(v2, 2)
+
 			if v > v_max then v_max = v end
 			if v < v_min then v_min = v end
 			-- v = torusnoise(x/size, y/size)
 			-- print(v)
 
-			local water_level = 0.1
-			local snow_level = 0.9
+			local water_level = 0.091
+			-- local snow_level = 0.9
 
-			v = math.max(v,water_level)
+			v = math.max(v, water_level)
 			-- heightmap_2D_1[x+1][y+1] = v*255
 
-			if v <= water_level then -- water
-				gen_map_color_origin_data:setPixel(x,y, noise(x*0.1,y*0.1)*0.3, noise(x*0.1,y*0.1)*0.1,1, 1)
-			elseif v> snow_level then -- snow
-				gen_map_color_origin_data:setPixel(x,y, 1,1,1, 1)
-			elseif v>water_level and v < water_level+ 0.01 then -- beach
-				gen_map_color_origin_data:setPixel(x,y, 1,0.91,0.79, 1)
-			elseif v >0.5 and v < snow_level then -- rock
-				gen_map_color_origin_data:setPixel(x,y, 0.5*v, 0.5*v, 0.5*v, 1)
-			else
-				gen_map_color_origin_data:setPixel(x,y, 0, 0.2+(v+noise(x*1,y*1)*0.02), 0, 1)
-			end
+			local r, g, b = biome_color:getPixel(v2*197, math.min(1-v, 1)*197)
+			gen_map_color_origin_data:setPixel(x,y, r+noise(x*1,y*1)*0.05	, g+noise(x*1,y*1)*0.05	, b+noise(x*1,y*1)*0.05	, 1)
+
+			-- if v <= water_level then -- water
+			-- 	gen_map_color_origin_data:setPixel(x,y, noise(x*0.1,y*0.1)*0.3, noise(x*0.1,y*0.1)*0.1,1, 1)
+			-- elseif v> snow_level then -- snow
+			-- 	gen_map_color_origin_data:setPixel(x,y, 1,1,1, 1)
+			-- elseif v>water_level and v < water_level+ 0.01 then -- beach
+			-- 	gen_map_color_origin_data:setPixel(x,y, 1,0.91,0.79, 1)
+			-- elseif v >0.5 and v < snow_level then -- rock
+			-- 	gen_map_color_origin_data:setPixel(x,y, 0.5*v, 0.5*v, 0.5*v, 1)
+			-- else
+			-- 	gen_map_color_origin_data:setPixel(x,y, 0, 0.2+(v+noise(x*1,y*1)*0.02), 0, 1)
+			-- end
 			gen_map_height_data:setPixel(x,y,v,v,v,1)
 			heightmap_2D[x+1][y+1] = v * 255
 		end
@@ -113,7 +131,7 @@ function gen_map(octa)
 	gen_map_height = love.graphics.newImage(gen_map_height_data)
 	-- shader_light:send("map", gen_map_color_origin)
 	shader_light:send("height_map", gen_map_height)
-	shader_light:send("preci", 0.2)
+	shader_light:send("preci", 0.02)
 	gen_light(0.5, 0.5, 1.4)
 
 	-- function test( x, y, r, g, b, a )
@@ -137,6 +155,8 @@ function love.load(arg)
 	colormap_data  = love.image.newImageData("C1W.png")
 	map =  love.graphics.newImage(colormap_data)
 	light_color = love.image.newImageData("light_color.png")
+
+	biome_color = love.image.newImageData("biome.png")
 
 	gen_map_color_origin_data = love.image.newImageData(size,size)
 	gen_map_height_data = love.image.newImageData(size,size)
@@ -283,8 +303,8 @@ function love.draw()
 	love.graphics.draw(gen_map_color,320*2,0,0,240*2/size,240*2/size)
 
 	love.graphics.circle("fill", (pos.x%size)*240*2/size + 320*2, (pos.y%size)*240*2/size, 5, segments)
-	love.graphics.print(love.timer.getFPS(), 200, 5)
-	love.graphics.print(color.." "..math.sin(time)*16, 200, 30)
+	love.graphics.print(love.timer.getFPS(), 10, 10)
+	-- love.graphics.print(color.." "..math.sin(time)*16, 200, 30)
 end
 
 function love.update(dt)
