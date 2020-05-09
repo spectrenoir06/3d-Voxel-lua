@@ -14,11 +14,8 @@ vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords)
 	vec3 pos = vec3(texture_coords.x*1024.0, texture_coords.y*1024.0, h);
 	vec3 LightDir = normalize(sun - pos);
 
-	while( 	pos.x >=0
-			&& pos.x < 1024
-			&& pos.y >=0
-			&& pos.y < 1024
-			&& pos != sun
+	while(
+			pos != sun
 			&& pos.z < 1
 		)
 	{
@@ -26,7 +23,7 @@ vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords)
 
 		// float LerpX = round(pos.x);
 		// float LerpZ = round(pos.z);
-		float c = Texel(height_map, vec2(pos.x/1024.0, pos.y/1024.0)).x;
+		float c = Texel(height_map, vec2(mod(pos.x, 1024.0)/1024.0, mod(pos.y, 1024.0)/1024.0)).x;
 		if(pos.z <= c) {
 
 			// return vec4(1,0,0,1);

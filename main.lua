@@ -6,14 +6,17 @@ local floor = math.floor
 local sin = math.sin
 local cos = math.cos
 local noise = love.math.noise
+local TAU = math.pi*2
 
-function drawVerticalLine(x, y, y2, color)
-	if y2>0 and y <= y2 then
-		-- print(x,y, y2, y2-y)
-		love.graphics.setColor(color)
-		love.graphics.rectangle("fill", x, y, 1, y2-y)
-		-- love.graphics.line(x, y, x, y2)
-	end
+function torusnoise(x,y)
+	local angle_x = TAU * x
+	local angle_y = TAU * y
+	return noise(
+		cos(angle_x) / TAU*10,
+		sin(angle_x) / TAU*10,
+		cos(angle_y) / TAU*10,
+		sin(angle_y) / TAU*10
+	)
 end
 
 function pack(...)
@@ -38,11 +41,11 @@ function gen_light(x,y,z)
 	gen_map_color_data = test_cv:newImageData()
 	gen_map_color:replacePixels(gen_map_color_data, nil, 1)
 	-- gen_map_color = love.graphics.newImage(gen_map_color_data)
-	gem_map_color_ptr = ffi.cast("struct ImageData_Pixel_RGBA8 *", gen_map_color_data:getFFIPointer())
+	-- gem_map_color_ptr = ffi.cast("struct ImageData_Pixel_RGBA8 *", gen_map_color_data:getFFIPointer())
 end
 
 
-function gen_map(z)
+function gen_map(octa)
 	local mul = 0.003
 	for x=0, 1024-1 do
 		heightmap_2D[x+1] = {}
@@ -51,27 +54,30 @@ function gen_map(z)
 			local v = 0
 			local val = 1
 			local max = 0
-			for i=1, 10 do
+			for i=1, octa or 10 do
 				-- print(val)
 				max = max + val
-				v = v + (val * noise(x*i*mul+100.3, y*i*mul+0.333))
-				val = val * 0.5
+				v = v + (val * torusnoise(x/1024*i, y/1024*i))
+				val = val * 0.4
 			end
 			v = v / max
+			v = math.pow(v, 1.8);
+			-- v = torusnoise(x/1024, y/1024)
 			-- print(v)
 
-			local water_level = 0.35
+			local water_level = 0.3
+			local snow_level = 0.55
 
 			v = math.max(v,water_level)
 			-- heightmap_2D_1[x+1][y+1] = v*255
 
 			if v <= water_level then -- water
 				gen_map_color_origin_data:setPixel(x,y, noise(x*0.1,y*0.1)*0.3, noise(x*0.1,y*0.1)*0.1,1, 1)
-			elseif v> 0.75 then -- snow
+			elseif v> snow_level then -- snow
 				gen_map_color_origin_data:setPixel(x,y, 1,1,1, 1)
 			elseif v>water_level and v < water_level+ 0.01 then -- beach
 				gen_map_color_origin_data:setPixel(x,y, 1,0.91,0.79, 1)
-			elseif v >0.6 and v < 0.75 then -- rock
+			elseif v >0.5 and v < snow_level then -- rock
 				gen_map_color_origin_data:setPixel(x,y, 0.5*v, 0.5*v, 0.5*v, 1)
 			else
 				gen_map_color_origin_data:setPixel(x,y, 0, 1*v+noise(x*1,y*1)*0.02, 0, 1)
@@ -116,7 +122,7 @@ function love.load(arg)
 
 	test_cv = love.graphics.newCanvas(1024,1024)
 
-	gen_map()
+	gen_map(20)
 
 	-- for x=0, heightmap_data:getWidth()-1 do
 	-- 	heightmap_2D[x+1] = {}
@@ -237,7 +243,7 @@ function render(p, phi, height, horizon, scale_height, distance, screen_width, s
 end
 
 
-local time = 0
+local time = math.pi/2
 
 function love.draw()
 	-- time = math.math.pi
@@ -319,6 +325,10 @@ function love.keypressed( key, scancode, isrepeat )
 
 	if key == "3" then
 		play_time = not play_time
+	end
+
+	if key == "5" then
+		gen_map(floor(love.mouse.getX()/640*10)+1)
 	end
 
 	if key == "escape" or key == "c" then
