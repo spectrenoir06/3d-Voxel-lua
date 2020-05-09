@@ -32,25 +32,37 @@ float noise( in vec2 p )
 vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords)
 {
 
-	float f = 0.0;
 
 	// left: value noise
-	{
-		texture_coords *= dens;
-		texture_coords += vec2(Utime, 0.0);
-		mat2 m = mat2( 1.6,  1.2, -1.2,  1.6 );
-		f  = 0.5000*noise( texture_coords ); texture_coords = m*texture_coords;
-		f += 0.2500*noise( texture_coords ); texture_coords = m*texture_coords;
-		f += 0.1250*noise( texture_coords ); texture_coords = m*texture_coords;
-		f += 0.0625*noise( texture_coords ); texture_coords = m*texture_coords;
-		f += 0.03125*noise( texture_coords ); texture_coords = m*texture_coords;
-		f += 0.015625*noise( texture_coords ); texture_coords = m*texture_coords;
-	}
+	mat2 m2 = mat2( 1.6,  1.2, -1.2,  1.6 );
 
-	f =  0.3+f*1.5;
-	vec4 c = Texel(biome, vec2(0.5,1-f));
-	c += vec4(vec3(noise(texture_coords*8.0)*0.02), 0);
+	float h = 0.0;
+	vec2 uv = texture_coords*dens;
+	h += 0.5000*noise( uv ); uv = m2*uv;
+	h += 0.2500*noise( uv ); uv = m2*uv;
+	h += 0.1250*noise( uv ); uv = m2*uv;
+	h += 0.0625*noise( uv ); uv = m2*uv;
+	h += 0.03125*noise( uv ); uv = m2*uv;
+	h += 0.015625*noise( uv ); uv = m2*uv;
+
+	h =  0.3+h*1.5;
 
 
-	return vec4(c.xyz, f);
+	float m = 0.0;
+	uv = texture_coords/10.0*dens+vec2(13,70);
+	m += 0.5000*noise( uv ); uv = m2*uv;
+	m += 0.2500*noise( uv ); uv = m2*uv;
+	m += 0.1250*noise( uv ); uv = m2*uv;
+	m += 0.0625*noise( uv ); uv = m2*uv;
+	m += 0.03125*noise( uv ); uv = m2*uv;
+	m += 0.015625*noise( uv ); uv = m2*uv;
+
+	m =  0.3+m*1.5;
+
+
+	vec4 c = Texel(biome, vec2(m,1-h));
+	c += vec4(vec3(noise(texture_coords*400.0*dens)*0.04), 0);
+
+
+	return vec4(c.xyz*(0.75+h/4.0), max(0.091, h));
 }

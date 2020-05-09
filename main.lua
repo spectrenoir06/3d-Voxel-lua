@@ -253,6 +253,7 @@ function render(p, phi, height, horizon, scale_height, distance, screen_width, s
 			-- print(pleft_x)
 
 			local r,g,b,h = gen_map_color_origin_data:getPixel(x, y)
+			-- h = h - z*0.008
 			-- local h = gen_map_height_data:getPixel(x, y) * 255
 			-- local h = heightmap_2D[x+1][y+1]
 			local height_on_screen = floor((height - h*255) / z * scale_height + horizon)
@@ -355,6 +356,7 @@ function love.update(dt)
 		gen_map_shader(dens)
 		print(dens)
 		vy = 255 / dens
+		-- pos = pos / dens
 	end
 
 	if play_time then
@@ -362,10 +364,10 @@ function love.update(dt)
 		gen_light(0.5+math.cos(time)*4, 0.5, math.sin(time)*8)
 	end
 
-	local sol = gen_map_height_data:getPixel(pos.x%size, pos.y%size)*255
+	local r,g,b,sol = gen_map_color_origin_data:getPixel(pos.x%size, pos.y%size)
 	--
-	if height < sol + 10 then
-		height = sol + 10
+	if height < sol*255 + 10 then
+		height = sol*255 + 10
 	end
 
 	-- require("lovebird").update()
