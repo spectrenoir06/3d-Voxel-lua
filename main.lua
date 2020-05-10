@@ -8,7 +8,7 @@ local cos = math.cos
 local noise = love.math.noise
 local TAU = math.pi*2
 
-local size = 2048
+local size = 512
 
 function torusnoise(x,y, dens)
 	local angle_x = TAU * x
