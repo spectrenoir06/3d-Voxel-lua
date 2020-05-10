@@ -57,7 +57,7 @@ function gen_map(x,y,dens)
 	shader_gen:send("dens", dens or 1)
 	shader_gen:send("off", {x,y})
 
-	local data = shader_render(chunck_clear, shader_gen)
+	local data = shader_render(chunk_clear, shader_gen)
 	local img = love.graphics.newImage(data)
 	-- map:replacePixels(map_data, nil, 1)
 
@@ -83,8 +83,8 @@ function love.load(arg)
 	map = love.graphics.newImage(map_data)
 
 
-	chunck_clear_data = love.image.newImageData(size, size)
-	chunck_clear = love.graphics.newImage(map_data)
+	chunk_clear_data = love.image.newImageData(size, size)
+	chunk_clear = love.graphics.newImage(map_data)
 
 
 	shader_light = love.graphics.newShader("light.glsl")
@@ -97,8 +97,10 @@ function love.load(arg)
 	sun = {0.5, 0.5, 1,4}
 	-- map_data, map = gen_map(0,0,1)
 
-	chuncks= {}
+	chunks= {}
 	density = 1.0
+
+	minimap_size = 64
 
 	canvas = love.graphics.newCanvas(320*2, 240*2)
 	canvas:setFilter("nearest", "nearest")
@@ -160,17 +162,17 @@ function render(p, phi, height, horizon, scale_height, distance, screen_width, s
 			local chunk_x = floor(pleft_x/size)
 			local chunk_y = floor(pleft_y/size)
 
-			-- print(chunk_x, chunk_y, chuncks[x+1], chuncks[chunk_x+1] and chuncks[x+1][y+1])
-			if not chuncks[chunk_x] or not chuncks[chunk_x][chunk_y] then
+			-- print(chunk_x, chunk_y, chunks[x+1], chunks[chunk_x+1] and chunks[x+1][y+1])
+			if not chunks[chunk_x] or not chunks[chunk_x][chunk_y] then
 				local data, img = gen_map(chunk_x, chunk_y, density)
-				if not chuncks[chunk_x] then chuncks[chunk_x] = {} end
-				chuncks[chunk_x][chunk_y] = {
+				if not chunks[chunk_x] then chunks[chunk_x] = {} end
+				chunks[chunk_x][chunk_y] = {
 					data = data,
 					img = img
 				}
 			end
 
-			local data = chuncks[chunk_x][chunk_y].data
+			local data = chunks[chunk_x][chunk_y].data
 			local x = floor(pleft_x)%size
 			local y = floor(pleft_y)%size
 			-- print(chunk_x, chunk_y, x, y)
@@ -219,17 +221,26 @@ function love.draw()
 	love.graphics.setColor(light_color:getPixel(color, 1))
 	love.graphics.draw(canvas,0,0,0,2,2)
 
-	-- love.graphics.setBlendMode("replace","premultiplied")
-	-- for x=1,2 do
-	-- 	for y=1,10 do
-	-- 		love.graphics.draw(chuncks[x][y].img,320*2+size*(x-1),size*(y-1),0,1,1)
-	-- 	end
-	-- end
-	-- love.graphics.setBlendMode("alpha")
+	love.graphics.setBlendMode("replace","premultiplied")
+	for x=0,240*2/minimap_size do
+		for y=0,240*2/minimap_size do
+			if chunks[x] and chunks[x][y] then
+				love.graphics.draw(
+					chunks[x][y].img,
+					320*2+minimap_size*x,
+					minimap_size*y,
+					0,
+					minimap_size/size,
+					minimap_size/size
+				)
+			end
+		end
+	end
+	love.graphics.setBlendMode("alpha")
 
-	love.graphics.circle("fill", (pos.x%size)*240*2/size + 320*2, (pos.y%size)*240*2/size, 5, segments)
+	love.graphics.circle("fill", pos.x/size*minimap_size/density + 320*2, pos.y/size*minimap_size/density, 5, segments)
 	love.graphics.print(love.timer.getFPS(), 10, 10)
-	love.graphics.print(density, 200, 30)
+	love.graphics.print(density, 10, 30)
 end
 
 function love.update(dt)
@@ -238,13 +249,16 @@ function love.update(dt)
 		frame = (frame + 1)%4
 		timer = 0
 	end
-	if love.keyboard.isDown("space") then height = height + (dt * 100) end
-	if love.keyboard.isDown("lshift") then height = height - (dt * 100) end
 
-	if love.keyboard.isDown("w") then pos = pos - (dir * dt * 100) end
-	if love.keyboard.isDown("s") then pos = pos + (dir * dt * 100) end
-	if love.keyboard.isDown("a") then pos = pos + (dir:perpendicular() * dt * 100) end
-	if love.keyboard.isDown("d") then pos = pos - (dir:perpendicular() * dt * 100) end
+	local speed = love.keyboard.isDown("lctrl") and 500 or 100
+
+	if love.keyboard.isDown("space") then height = height + (dt * (speed)) end
+	if love.keyboard.isDown("lshift") then height = height - (dt * (speed)) end
+
+	if love.keyboard.isDown("w") then pos = pos - (dir * dt * (speed)) end
+	if love.keyboard.isDown("s") then pos = pos + (dir * dt * (speed)) end
+	if love.keyboard.isDown("a") then pos = pos + (dir:perpendicular() * dt * (speed)) end
+	if love.keyboard.isDown("d") then pos = pos - (dir:perpendicular() * dt * (speed)) end
 
 	if love.keyboard.isDown("q") then dir:rotateInplace(-dt * 1) end
 	if love.keyboard.isDown("e") then dir:rotateInplace(dt * 1) end
@@ -268,20 +282,19 @@ function love.update(dt)
 	if love.keyboard.isDown("1") then
 		time = love.mouse.getX()/640*math.pi*2
 		sun = {0.5+math.cos(time)*4, 0.5, math.sin(time)*8}
-		chuncks={}
+		chunks={}
 	end
 
 	if love.keyboard.isDown("2") then
 		time = math.pi/2
 		sun = {(love.mouse.getX()-320*2)/(240*2), love.mouse.getY()/(240*2), 2}
-		chuncks={}
+		chunks={}
 	end
 
 	if  love.keyboard.isDown("6") then
 		density = love.mouse.getX()/640*10
-		chuncks={}
+		chunks={}
 		vy = 255 / density / (1024 / size)
-		pos = pos * 0
 	end
 
 	if play_time then
@@ -293,17 +306,17 @@ function love.update(dt)
 	local chunk_x = floor(pos.x/size)
 	local chunk_y = floor(pos.y/size)
 
-	-- print(chunk_x, chunk_y, chuncks[x+1], chuncks[chunk_x+1] and chuncks[x+1][y+1])
-	if not chuncks[chunk_x] or not chuncks[chunk_x][chunk_y] then
+	-- print(chunk_x, chunk_y, chunks[x+1], chunks[chunk_x+1] and chunks[x+1][y+1])
+	if not chunks[chunk_x] or not chunks[chunk_x][chunk_y] then
 		local data, img = gen_map(chunk_x, chunk_y, density)
-		if not chuncks[chunk_x] then chuncks[chunk_x] = {} end
-		chuncks[chunk_x][chunk_y] = {
+		if not chunks[chunk_x] then chunks[chunk_x] = {} end
+		chunks[chunk_x][chunk_y] = {
 			data = data,
 			img = img
 		}
 	end
 
-	local r,g,b,sol = chuncks[chunk_x][chunk_y].data:getPixel(pos.x/density%size, pos.y/density%size)
+	local r,g,b,sol = chunks[chunk_x][chunk_y].data:getPixel(pos.x/density%size, pos.y/density%size)
 	--
 	if height < sol*255 + 10*density then
 		height = sol*255 + 10*density
@@ -317,9 +330,8 @@ end
 	 if y~=0 then
  		density = density + 0.1*y
 		if density < 0.1 then density = 0.1 end
- 		chuncks={}
+ 		chunks={}
  		vy = 255 / density / (1024 / size)
- 		-- pos = pos * 0
  	end
 end
 
