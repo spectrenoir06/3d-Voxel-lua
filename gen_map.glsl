@@ -1,10 +1,8 @@
 #pragma language glsl3
 
 uniform Image biome;
-uniform float Utime=0;
 uniform float dens=1.0;
-uniform float preci=1.0;
-uniform vec3 sun;
+uniform vec2 off = vec2(1.0, 0.0);
 
 
 vec2 hash( vec2 p ) // replace this by something better
@@ -31,13 +29,11 @@ float noise( in vec2 p )
 
 vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords)
 {
-
-
 	// left: value noise
 	mat2 m2 = mat2( 1.6,  1.2, -1.2,  1.6 );
 
 	float h = 0.0;
-	vec2 uv = texture_coords*dens;
+	vec2 uv = (texture_coords+off)*dens;
 	h += 0.5000*noise( uv ); uv = m2*uv;
 	h += 0.2500*noise( uv ); uv = m2*uv;
 	h += 0.1250*noise( uv ); uv = m2*uv;
@@ -45,11 +41,12 @@ vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords)
 	h += 0.03125*noise( uv ); uv = m2*uv;
 	h += 0.015625*noise( uv ); uv = m2*uv;
 
-	h =  0.3+h*1.5;
+	h =  0.2+h*1.5;
+	h = pow(h, 1.001);
 
 
 	float m = 0.0;
-	uv = texture_coords/10.0*dens+vec2(13,70);
+	uv = (texture_coords+off)/10.0*dens+vec2(13,70);
 	m += 0.5000*noise( uv ); uv = m2*uv;
 	m += 0.2500*noise( uv ); uv = m2*uv;
 	m += 0.1250*noise( uv ); uv = m2*uv;
