@@ -2,7 +2,7 @@
 
 uniform Image biome;
 uniform float dens=1.0;
-uniform vec2 off = vec2(1.0, 0.0);
+uniform vec2 off = vec2(0.0, 0.0);
 
 
 vec2 hash( vec2 p ) // replace this by something better

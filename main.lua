@@ -31,19 +31,24 @@ local heightmap_2D = {}
 local timer = 0
 local frame = 0
 
-function gen_light()
-	shader_light:send("sun", sun)
-	shader_light:send("preci", 0.01)
-
+function shader_render(img, shader)
 	test_cv:renderTo(function()
-		love.graphics.setShader(shader_light)
+		love.graphics.clear(1,0,0,1)
+		love.graphics.setShader(shader)
 			love.graphics.setBlendMode("replace","premultiplied")
-			love.graphics.draw(map,0,0)
+			love.graphics.draw(img,0,0)
 		love.graphics.setShader()
 	end)
 	love.graphics.setBlendMode("alpha")
 
-	map_data = test_cv:newImageData()
+	return test_cv:newImageData()
+end
+
+function gen_light()
+	shader_light:send("sun", sun)
+	shader_light:send("preci", 0.01)
+
+	map_data = shader_render(map, shader_light)
 	map:replacePixels(map_data, nil, 1)
 end
 
@@ -51,17 +56,7 @@ function gen_map(x,y,dens)
 	shader_gen:send("dens", dens or 1)
 	shader_gen:send("off", {x,y})
 
-	test_cv:renderTo(function()
-		love.graphics.clear(1,0,0,1)
-		love.graphics.setShader(shader_gen)
-			love.graphics.setBlendMode("replace","premultiplied")
-			love.graphics.draw(map,0,0)
-			-- love.graphics.rectangle(, 0, 0, size, size)
-		love.graphics.setShader()
-	end)
-	love.graphics.setBlendMode("alpha")
-
-	map_data = test_cv:newImageData()
+	map_data = shader_render(map, shader_gen)
 	map:replacePixels(map_data, nil, 1)
 
 	gen_light()
