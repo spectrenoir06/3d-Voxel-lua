@@ -60,6 +60,5 @@ vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords)
 	vec4 c = Texel(biome, vec2(m,1-h));
 	c += vec4(vec3(noise(texture_coords*400.0*dens)*0.04), 0);
 
-
 	return vec4(c.xyz*(0.75+h/4.0), max(0.091, h));
 }

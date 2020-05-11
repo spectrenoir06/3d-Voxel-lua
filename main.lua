@@ -5,6 +5,7 @@ local ffi = require "ffi"
 local floor = math.floor
 local sin = math.sin
 local cos = math.cos
+local max = math.max
 local noise = love.math.noise
 local TAU = math.pi*2
 
@@ -87,14 +88,17 @@ function love.load(arg)
 	chunk_clear = love.graphics.newImage(map_data)
 
 
-	shader_light = love.graphics.newShader("light.glsl")
+	-- shader_light = love.graphics.newShader("light.glsl")
+	shader_light = love.graphics.newShader("light_inf.glsl")
+
+	shader_water = love.graphics.newShader("water_simple.glsl")
 
 	shader_gen = love.graphics.newShader("gen_map.glsl")
 	shader_gen:send("biome", biome_color)
 
 	test_cv = love.graphics.newCanvas(size, size)
 
-	sun = {0.5, 0.5, 1,4}
+	sun = {0, 0.5, 1}
 	-- map_data, map = gen_map(0,0,1)
 
 	chunks= {}
@@ -102,8 +106,33 @@ function love.load(arg)
 
 	minimap_size = 64
 
-	canvas = love.graphics.newCanvas(320*2, 240*2)
+	lx, ly = 320*2, 240*2
+
+	canvas = love.graphics.newCanvas(lx*1, ly)
 	canvas:setFilter("nearest", "nearest")
+
+	canvas_2_data = love.image.newImageData(lx, ly)
+	canvas_2_data_ptr = ffi.cast("struct ImageData_Pixel_RGBA8 *", canvas_2_data:getFFIPointer())
+
+	canvas_2_data_clear = love.image.newImageData(lx, ly)
+	for x=0,lx-1 do
+		for y=0,ly-1 do
+			canvas_2_data_clear:setPixel(x,y, 0,0,1,1)
+		end
+	end
+
+	-- for x=-2, 2 do
+	-- 	for y=-2, 2 do
+	-- 		local data, img = gen_map(x, y, density)
+	-- 		if not chunks[x] then chunks[x] = {} end
+	-- 			chunks[x][y] = {
+	-- 			data = data,
+	-- 			img = img
+	-- 		}
+	-- 	end
+	-- end
+
+	canvas_2 = love.graphics.newImage(canvas_2_data_clear)
 
 	pos = vector(0, 0)
 	dir = vector(-1,-1)
@@ -113,7 +142,6 @@ function love.load(arg)
 	vx = 120
 	vy = 255 / 1.0 / (1024 / size)
 
-	sun = {0.5, 0.5, 1.4}
 end
 
 function render(p, phi, height, horizon, scale_height, distance, screen_width, screen_height)
@@ -180,19 +208,21 @@ function render(p, phi, height, horizon, scale_height, distance, screen_width, s
 
 			local r,g,b,h = data:getPixel(x, y)
 			-- h = h - z*0.008
-			local height_on_screen = floor((height - h*255) / z * scale_height + horizon)
+			local height_on_screen = max(floor((height - h*255) / z * scale_height + horizon), 0)
 
 			local y2 = ybuffer[i+1]
 			if y2>0 and height_on_screen<y2 then
-				-- print(r,g,b)
-				color(r,g,b)
-
-				-- local c= gem_map_color_ptr[y * size + x]
-				-- color(c.r/255, c.g/255, c.b/255)
-
-				-- color(colormap[x+1][y+1])
-				-- print(height_on_screen)
-				rect("fill", i, height_on_screen, 1, y2-height_on_screen)
+				for j=height_on_screen, y2-1 do
+					-- color(r,g,b)
+					local pixel = canvas_2_data_ptr[j * 320*2 + i]
+					pixel.r = r*255+0.5
+					pixel.g = g*255+0.5
+					pixel.b = b*255+0.5
+					pixel.a = 255
+					-- canvas_2_data:setPixel(i, j, r, g, b)
+				end
+				-- color(r,g,b)
+				-- rect("fill", i, height_on_screen, 1, y2-height_on_screen)
 				ybuffer[i+1] = height_on_screen
 			end
 
@@ -210,16 +240,29 @@ end
 local time = math.pi/2
 
 function love.draw()
+	canvas_2_data:paste(canvas_2_data_clear,0,0,0,0)
 	-- time = math.math.pi
-	local color = (math.sin(time)*16)%64
-	canvas:renderTo(function()
-		love.graphics.clear(light_color:getPixel(color ,0))
-		render(pos/density, dir:toPolar().x, height, vx, vy, dist, 320, 240)
-	end)
+	-- local color = (math.sin(time)*16)%64
+	-- canvas:renderTo(function()
+	-- 	love.graphics.clear(light_color:getPixel(color ,0))
+	-- 	-- love.graphics.clear(1,0,1,1)
+		render(pos/density, dir:toPolar().x, height, vx, vy, dist, lx, ly)
+	-- end)
 
 	love.graphics.setColor(1,1,1,1)
-	love.graphics.setColor(light_color:getPixel(color, 1))
-	love.graphics.draw(canvas,0,0,0,2,2)
+	-- love.graphics.setColor(light_color:getPixel(color, 1))
+
+	-- shader_water:send("iTime", time)
+	-- shader_water:send("iMouse", {love.mouse.getX()/320*2, love.mouse.getY()/240*2})
+	-- shader_water:send("pos", {pos.x, pos.y})
+	-- love.graphics.setShader(shader_water)
+
+	canvas_2:replacePixels(canvas_2_data)
+	love.graphics.draw(canvas_2,0,0,0,1,1)
+
+	-- love.graphics.draw(canvas,0,0,0,2,2)
+	-- love.graphics.setShader()
+
 
 	love.graphics.setBlendMode("replace","premultiplied")
 	for x=0,240*2/minimap_size do
@@ -292,9 +335,9 @@ function love.update(dt)
 	end
 
 	if  love.keyboard.isDown("6") then
-		density = love.mouse.getX()/640*10
+		-- density = love.mouse.getX()/640*10
 		chunks={}
-		vy = 255 / density / (1024 / size)
+		-- vy = 255 / density / (1024 / size)
 	end
 
 	if play_time then
@@ -303,9 +346,9 @@ function love.update(dt)
 		-- map_data, map = gen_map(0,0,dens)
 	end
 
-	local chunk_x = floor(pos.x/size)
-	local chunk_y = floor(pos.y/size)
-
+	local chunk_x = floor(pos.x/density/size)
+	local chunk_y = floor(pos.y/density/size)
+	--
 	-- print(chunk_x, chunk_y, chunks[x+1], chunks[chunk_x+1] and chunks[x+1][y+1])
 	if not chunks[chunk_x] or not chunks[chunk_x][chunk_y] then
 		local data, img = gen_map(chunk_x, chunk_y, density)
@@ -315,21 +358,21 @@ function love.update(dt)
 			img = img
 		}
 	end
-
-	local r,g,b,sol = chunks[chunk_x][chunk_y].data:getPixel(pos.x/density%size, pos.y/density%size)
 	--
-	if height < sol*255 + 10*density then
-		height = sol*255 + 10*density
+	local r,g,b,sol = chunks[chunk_x][chunk_y].data:getPixel(pos.x/density%size, pos.y/density%size)
+	-- --
+	if height < sol*255 + 10 then
+		height = sol*255 + 10
 	end
 
-	-- require("lovebird").update()
+	require("lovebird").update()
 	-- print(pos)
 end
 
  function love.wheelmoved(x, y)
 	 if y~=0 then
  		density = density + 0.1*y
-		if density < 0.1 then density = 0.1 end
+		if density < 1 then density = 1 end
  		chunks={}
  		vy = 255 / density / (1024 / size)
  	end
