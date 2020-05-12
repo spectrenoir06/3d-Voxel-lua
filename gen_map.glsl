@@ -41,24 +41,45 @@ vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords)
 	h += 0.03125*noise( uv ); uv = m2*uv;
 	h += 0.015625*noise( uv ); uv = m2*uv;
 
-	h =  0.2+h*1.5;
+	h =  0.2+h*1.6;
 	h = pow(h, 1.001);
 
 
 	float m = 0.0;
-	uv = (texture_coords+off)/10.0*dens+vec2(13,70);
-	m += 0.5000*noise( uv ); uv = m2*uv;
+	uv = (texture_coords+off)/20.0*dens+vec2(13,70);
+	m += 0.5*noise( uv ); uv = m2*uv;
 	m += 0.2500*noise( uv ); uv = m2*uv;
 	m += 0.1250*noise( uv ); uv = m2*uv;
 	m += 0.0625*noise( uv ); uv = m2*uv;
 	m += 0.03125*noise( uv ); uv = m2*uv;
 	m += 0.015625*noise( uv ); uv = m2*uv;
 
-	m =  0.3+m*1.5;
+	m =  0.1+m;
 
+	float t = 0.0;
+	uv = (texture_coords+off)/50.0*dens+vec2(-50,100);
+	t += 0.5*noise(uv); uv = m2*uv;
+	t += 0.1250*noise( uv ); uv = m2*uv;
+	t += 0.0625*noise( uv ); uv = m2*uv;
+	t += 0.03125*noise( uv ); uv = m2*uv;
+	t += 0.015625*noise( uv ); uv = m2*uv;
 
-	vec4 c = Texel(biome, vec2(m,1-h));
+	t =0.5+t*1.6;
+	// t -= 0.5;
+	// t *= 0.05;
+
+	vec4 c;
+
+	if (h <= 0.091) {
+		c = vec4(0, 107.0/255.0, 187/255.0, 0.091); // water
+		h = 0.091;
+	}
+	else if (h < 0.091+0.015)
+		c = vec4(1.0, 200.0/255.0, 114.0/255.0, 0.091); // water
+	else
+		c = Texel(biome, vec2(m, t-(h*0.3)));
+
 	c += vec4(vec3(noise(texture_coords*400.0*dens)*0.04), 0);
 
-	return vec4(c.xyz*(0.75+h/4.0), max(0.091, h));
+	return vec4(c.xyz*(0.50+h/2.0), h);
 }

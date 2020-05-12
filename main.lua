@@ -9,7 +9,7 @@ local max = math.max
 local noise = love.math.noise
 local TAU = math.pi*2
 
-local size = 1024
+local size = 512
 
 function torusnoise(x,y, dens)
 	local angle_x = TAU * x
@@ -47,7 +47,7 @@ end
 
 function gen_light(img)
 	shader_light:send("sun", sun)
-	shader_light:send("preci", 0.01)
+	shader_light:send("preci", 0.001)
 
 	local data = shader_render(img, shader_light)
 	img:replacePixels(data, nil, 1)
@@ -73,10 +73,10 @@ function love.load(arg)
 		print(k,v)
 	end
 
-	colormap_data  = love.image.newImageData("C1W.png") -- segfault if remove
+	-- colormap_data  = love.image.newImageData("C1W.png") -- segfault if remove
 
 	light_color = love.image.newImageData("light_color.png")
-	biome_color = love.graphics.newImage("biome.png")
+	biome_color = love.graphics.newImage("biome_3.png")
 
 
 
@@ -98,7 +98,7 @@ function love.load(arg)
 
 	test_cv = love.graphics.newCanvas(size, size)
 
-	sun = {0, 0.5, 1}
+	sun = {0, 0.5, 0.5}
 	-- map_data, map = gen_map(0,0,1)
 
 	chunks= {}
@@ -106,7 +106,7 @@ function love.load(arg)
 
 	minimap_size = 64
 
-	lx, ly = 320*2, 240*2
+	lx, ly = 320, 240
 
 	canvas = love.graphics.newCanvas(lx*1, ly)
 	canvas:setFilter("nearest", "nearest")
@@ -138,7 +138,7 @@ function love.load(arg)
 	dir = vector(-1,-1)
 	height = 250
 	-- rot = 0
-	dist = 800
+	dist = 1500--800
 	vx = 120
 	vy = 255 / 1.0 / (1024 / size)
 
@@ -150,6 +150,7 @@ function render(p, phi, height, horizon, scale_height, distance, screen_width, s
 	local cosphi = cos(phi)
 	local x = p.x
 	local y = p.y
+	local lx = lx
 
 	local rect = love.graphics.rectangle
 	local color = love.graphics.setColor
@@ -164,7 +165,7 @@ function render(p, phi, height, horizon, scale_height, distance, screen_width, s
 	local dz = 1.0
 	local z = 1.0
 
-	local prec = 0.01
+	local prec = 0.5
 
 
 	-- Draw from back to the front (high z coordinate to low z coordinate)
@@ -207,14 +208,14 @@ function render(p, phi, height, horizon, scale_height, distance, screen_width, s
 			-- print(pleft_x)
 
 			local r,g,b,h = data:getPixel(x, y)
-			-- h = h - z*0.008
 			local height_on_screen = max(floor((height - h*255) / z * scale_height + horizon), 0)
+			-- height_on_screen = height_on_screen - z*0.0001
 
 			local y2 = ybuffer[i+1]
 			if y2>0 and height_on_screen<y2 then
 				for j=height_on_screen, y2-1 do
 					-- color(r,g,b)
-					local pixel = canvas_2_data_ptr[j * 320*2 + i]
+					local pixel = canvas_2_data_ptr[j * lx + i]
 					pixel.r = r*255+0.5
 					pixel.g = g*255+0.5
 					pixel.b = b*255+0.5
@@ -229,9 +230,9 @@ function render(p, phi, height, horizon, scale_height, distance, screen_width, s
 			pleft_x = pleft_x + dx
 			pleft_y = pleft_y + dy
 		end
-		z = z + dz
+		z = floor(z + dz)
 		if z > 200 then
-			dz = dz + prec
+			dz = dz + 0.05
 		end
 	end
 end
@@ -258,7 +259,7 @@ function love.draw()
 	-- love.graphics.setShader(shader_water)
 
 	canvas_2:replacePixels(canvas_2_data)
-	love.graphics.draw(canvas_2,0,0,0,1,1)
+	love.graphics.draw(canvas_2,0,0,0,320*2/lx,240*2/ly)
 
 	-- love.graphics.draw(canvas,0,0,0,2,2)
 	-- love.graphics.setShader()
@@ -372,7 +373,7 @@ end
  function love.wheelmoved(x, y)
 	 if y~=0 then
  		density = density + 0.1*y
-		if density < 1 then density = 1 end
+		if density < 0.1 then density = 0.1 end
  		chunks={}
  		vy = 255 / density / (1024 / size)
  	end
