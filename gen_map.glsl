@@ -44,6 +44,14 @@ vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords)
 	h =  0.2+h*1.6;
 	h = pow(h, 1.001);
 
+	// if (texture_coords.x > 0.45 && texture_coords.x < 0.55 && texture_coords.y > 0.45 && texture_coords.y < 0.55) {
+	// 	return vec4(1,0,1, 1);
+	// }
+	// else {
+	// 	vec3 c = Texel(biome, vec2(0.5, 0.5)).xyz;
+	// 	return vec4(c, 0.5);
+	// }
+
 
 	float m = 0.0;
 	uv = (texture_coords+off)/20.0*dens+vec2(13,70);
@@ -54,10 +62,10 @@ vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords)
 	m += 0.03125*noise( uv ); uv = m2*uv;
 	m += 0.015625*noise( uv ); uv = m2*uv;
 
-	m =  0.1+m;
+	m =  0.1+m*1.3;
 
 	float t = 0.0;
-	uv = (texture_coords+off)/50.0*dens+vec2(-50,100);
+	uv = (texture_coords+off)/30.0*dens+vec2(-50,100);
 	t += 0.5*noise(uv); uv = m2*uv;
 	t += 0.1250*noise( uv ); uv = m2*uv;
 	t += 0.0625*noise( uv ); uv = m2*uv;

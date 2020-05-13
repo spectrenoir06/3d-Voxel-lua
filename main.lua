@@ -11,32 +11,19 @@ local TAU = math.pi*2
 
 local size = 512
 
-function torusnoise(x,y, dens)
-	local angle_x = TAU * x
-	local angle_y = TAU * y
-	return noise(
-		cos(angle_x) / TAU * dens,
-		sin(angle_x) / TAU * dens,
-		cos(angle_y) / TAU * dens,
-		sin(angle_y) / TAU * dens
-	)
-end
-
-function pack(...)
-	return { n = select("#", ...), ... }
-end
-
 local colormap = {}
 local heightmap_2D = {}
 
 local timer = 0
 local frame = 0
+local time = 0
+local test_time = 42
 
 function shader_render(img, shader)
 	test_cv:renderTo(function()
 		love.graphics.clear(1,0,0,1)
 		love.graphics.setShader(shader)
-			love.graphics.setBlendMode("replace","premultiplied")
+			love.graphics.setBlendMode("replace", "premultiplied")
 			love.graphics.draw(img,0,0)
 		love.graphics.setShader()
 	end)
@@ -98,7 +85,7 @@ function love.load(arg)
 
 	test_cv = love.graphics.newCanvas(size, size)
 
-	sun = {0, 0.5, 0.5}
+	sun = {0.5, 0.0, 0.5}
 	-- map_data, map = gen_map(0,0,1)
 
 	chunks= {}
@@ -117,7 +104,7 @@ function love.load(arg)
 	canvas_2_data_clear = love.image.newImageData(lx, ly)
 	for x=0,lx-1 do
 		for y=0,ly-1 do
-			canvas_2_data_clear:setPixel(x,y, 0,0,1,1)
+			canvas_2_data_clear:setPixel(x,y, 0.329, 0.608, 0.922,1)
 		end
 	end
 
@@ -209,7 +196,8 @@ function render(p, phi, height, horizon, scale_height, distance, screen_width, s
 
 			local r,g,b,h = data:getPixel(x, y)
 			local height_on_screen = max(floor((height - h*255) / z * scale_height + horizon), 0)
-			-- height_on_screen = height_on_screen - z*0.0001
+			-- print(height_on_screen)
+			height_on_screen = max(floor(height_on_screen), 0)
 
 			local y2 = ybuffer[i+1]
 			if y2>0 and height_on_screen<y2 then
@@ -289,6 +277,8 @@ end
 
 function love.update(dt)
 	timer = timer + dt
+	test_time = test_time + dt
+	time = time + dt
 	if timer > 0.250 then
 		frame = (frame + 1)%4
 		timer = 0
@@ -324,13 +314,13 @@ function love.update(dt)
 	if love.keyboard.isDown("j") then vy = vy - 1 end
 
 	if love.keyboard.isDown("1") then
-		time = love.mouse.getX()/640*math.pi*2
-		sun = {0.5+math.cos(time)*4, 0.5, math.sin(time)*8}
+		-- time = love.mouse.getX()/640*math.pi*2
+		sun = {math.cos(time), 0.0, math.sin(time)}
 		chunks={}
 	end
 
 	if love.keyboard.isDown("2") then
-		time = math.pi/2
+		-- time = math.pi/2
 		sun = {(love.mouse.getX()-320*2)/(240*2), love.mouse.getY()/(240*2), 2}
 		chunks={}
 	end
@@ -342,7 +332,6 @@ function love.update(dt)
 	end
 
 	if play_time then
-		time = time + dt / 4
 		sun = {0.5+math.cos(time)*4, 0.5, math.sin(time)*8}
 		-- map_data, map = gen_map(0,0,dens)
 	end
