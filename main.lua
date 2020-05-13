@@ -19,6 +19,16 @@ local frame = 0
 local time = 0
 local test_time = 42
 
+local chunks= {}
+local density = 1.0
+
+local minimap_size = 64
+
+local lx, ly = 320, 240
+
+local threads = {}
+local thread_nb = 1
+
 function shader_render(img, shader)
 	test_cv:renderTo(function()
 		love.graphics.clear(1,0,0,1)
@@ -88,12 +98,6 @@ function love.load(arg)
 	sun = {0.5, 0.0, 0.5}
 	-- map_data, map = gen_map(0,0,1)
 
-	chunks= {}
-	density = 1.0
-
-	minimap_size = 64
-
-	lx, ly = 320, 240
 
 	canvas = love.graphics.newCanvas(lx*1, ly)
 	canvas:setFilter("nearest", "nearest")
@@ -108,17 +112,6 @@ function love.load(arg)
 		end
 	end
 
-	-- for x=-2, 2 do
-	-- 	for y=-2, 2 do
-	-- 		local data, img = gen_map(x, y, density)
-	-- 		if not chunks[x] then chunks[x] = {} end
-	-- 			chunks[x][y] = {
-	-- 			data = data,
-	-- 			img = img
-	-- 		}
-	-- 	end
-	-- end
-
 	canvas_2 = love.graphics.newImage(canvas_2_data_clear)
 
 	pos = vector(0, 0)
@@ -128,6 +121,36 @@ function love.load(arg)
 	dist = 1500--800
 	vx = 120
 	vy = 255 / 1.0 / (1024 / size)
+
+
+	for i=1, thread_nb do
+		local thread = love.thread.newThread("render_thread.lua")
+		local channel_tx = love.thread.newChannel()
+		local channel_rx = love.thread.newChannel()
+
+		threads[i] = {
+			thread = thread,
+			channel_tx = channel_tx,
+			channel_rx = channel_rx
+		}
+		local sx = lx / thread_nb
+		print(sx, (i-1)*sx)
+		thread:start(channel_tx, channel_rx, canvas_2_data, lx, ly, size, (i-1)*sx)
+	end
+
+
+	for x=1, 10 do
+		for y=1, 10 do
+			local data, img = gen_map(x, y, density)
+			if not chunks[x] then chunks[x] = {} end
+			chunks[x][y] = {
+				data = data,
+				img = img
+			}
+		end
+	end
+
+
 
 end
 
@@ -149,32 +172,34 @@ function render(p, phi, height, horizon, scale_height, distance, screen_width, s
 		ybuffer[i] = screen_height
 	end
 
-	local dz = 1.0
-	local z = 1.0
 
 	local prec = 0.5
 
+	-- Raster line and draw a vertical line for each segment
+	for i=0, screen_width-1 do
+		local dz = 1.0
+		local z = 1.0
 
-	-- Draw from back to the front (high z coordinate to low z coordinate)
-	while z < distance do
-		-- print(z)
-		-- Find line on map. This calculation corresponds to a field of view of 90°
+		-- Draw from back to the front (high z coordinate to low z coordinate)
+		while z < distance do
+			-- Find line on map. This calculation corresponds to a field of view of 90°
+			local cosphi_mul = cosphi*z
+			local sinphi_mul = sinphi*z
 
-		local cosphi_mul = cosphi*z
-		local sinphi_mul = sinphi*z
+			local pleft_x = -cosphi_mul - sinphi_mul + x
+			local pleft_y =  sinphi_mul - cosphi_mul + y
 
-		local pleft_x = -cosphi_mul - sinphi_mul + x
-		local pleft_y =  sinphi_mul - cosphi_mul + y
+			local pright_x =  cosphi_mul - sinphi_mul + x
+			local pright_y = -sinphi_mul - cosphi_mul + y
 
-		local pright_x =  cosphi_mul - sinphi_mul + x
-		local pright_y = -sinphi_mul - cosphi_mul + y
+			-- segment the line
+			local dx = (pright_x - pleft_x) / lx
+			local dy = (pright_y - pleft_y) / lx
 
-		-- segment the line
-		local dx = (pright_x - pleft_x) / screen_width
-		local dy = (pright_y - pleft_y) / screen_width
+			pleft_x = pleft_x + dx*i
+			pleft_y = pleft_y + dy*i
 
-		-- Raster line and draw a vertical line for each segment
-		for i=0, screen_width-1 do
+
 			local chunk_x = floor(pleft_x/size)
 			local chunk_y = floor(pleft_y/size)
 
@@ -215,12 +240,10 @@ function render(p, phi, height, horizon, scale_height, distance, screen_width, s
 				ybuffer[i+1] = height_on_screen
 			end
 
-			pleft_x = pleft_x + dx
-			pleft_y = pleft_y + dy
-		end
-		z = floor(z + dz)
-		if z > 200 then
-			dz = dz + 0.05
+			z = floor(z + dz)
+			if z > 200 then
+				dz = dz + 0.05
+			end
 		end
 	end
 end
@@ -228,14 +251,45 @@ end
 
 local time = math.pi/2
 
+function love.threaderror(thread, errorstr)
+	print("Thread error!\n"..errorstr)
+	-- thread:getError() will return the same error string now.
+end
+
 function love.draw()
+	-- render(data.pos, data.dir, data.height, data.vx, data.vy, data.dist, data.lx, data.ly)
 	canvas_2_data:paste(canvas_2_data_clear,0,0,0,0)
+
+	for i=1, thread_nb do
+		-- threads[i].channel_rx:push({type = "chunck", data = chunks})
+		threads[i].channel_rx:push({
+			type = 1,
+			pos = pos/density,
+			dir = dir:toPolar().x,
+			height = height,
+			vx = vx,
+			vy = vy,
+			dist = dist,
+			lx = lx/ thread_nb,
+			ly = ly,
+			off = i * ( lx / thread_nb)
+		})
+	end
+
+	for i=1,thread_nb do
+		while(threads[i].channel_rx:getCount()>0) do
+			-- print("wait",i )
+			local error = threads[i].thread:getError()
+			assert( not error, error)
+		end
+	end
+
 	-- time = math.math.pi
 	-- local color = (math.sin(time)*16)%64
 	-- canvas:renderTo(function()
 	-- 	love.graphics.clear(light_color:getPixel(color ,0))
 	-- 	-- love.graphics.clear(1,0,1,1)
-		render(pos/density, dir:toPolar().x, height, vx, vy, dist, lx, ly)
+		-- render(pos/density, dir:toPolar().x, height, vx, vy, dist, lx, ly)
 	-- end)
 
 	love.graphics.setColor(1,1,1,1)
@@ -355,7 +409,7 @@ function love.update(dt)
 		height = sol*255 + 10
 	end
 
-	require("lovebird").update()
+	-- require("lovebird").update()
 	-- print(pos)
 end
 
@@ -375,6 +429,12 @@ function love.keypressed( key, scancode, isrepeat )
 
 	if key == "3" then
 		play_time = not play_time
+	end
+
+	if key == "y" then
+		for i=1, thread_nb do
+			threads[i].channel_rx:push({type = "chunck", data = chunks})
+		end
 	end
 
 	if key == "escape" or key == "c" then
