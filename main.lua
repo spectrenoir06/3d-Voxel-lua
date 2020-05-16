@@ -19,6 +19,19 @@ local frame = 0
 local time = 0
 local test_time = 42
 
+
+local sun = {0.5, 0.0, 0.5}
+-- map_data, map = gen_map(0,0,1)
+
+local  chunks= {}
+local density = 1.0
+
+local minimap_size = 64
+
+local lx, ly = 320*2, 240*2
+
+local canvas_2_data_ptr
+
 function shader_render(img, shader)
 	test_cv:renderTo(function()
 		love.graphics.clear(1,0,0,1)
@@ -34,7 +47,7 @@ end
 
 function gen_light(img)
 	shader_light:send("sun", sun)
-	shader_light:send("preci", 0.001)
+	shader_light:send("preci", 0.01)
 
 	local data = shader_render(img, shader_light)
 	img:replacePixels(data, nil, 1)
@@ -84,16 +97,6 @@ function love.load(arg)
 	shader_gen:send("biome", biome_color)
 
 	test_cv = love.graphics.newCanvas(size, size)
-
-	sun = {0.5, 0.0, 0.5}
-	-- map_data, map = gen_map(0,0,1)
-
-	chunks= {}
-	density = 1.0
-
-	minimap_size = 64
-
-	lx, ly = 320, 240
 
 	canvas = love.graphics.newCanvas(lx*1, ly)
 	canvas:setFilter("nearest", "nearest")
@@ -219,7 +222,7 @@ function render(p, phi, height, horizon, scale_height, distance, screen_width, s
 			pleft_y = pleft_y + dy
 		end
 		z = floor(z + dz)
-		if z > 200 then
+		if z > 150 then
 			dz = dz + 0.05
 		end
 	end
@@ -314,8 +317,8 @@ function love.update(dt)
 	if love.keyboard.isDown("j") then vy = vy - 1 end
 
 	if love.keyboard.isDown("1") then
-		-- time = love.mouse.getX()/640*math.pi*2
-		sun = {math.cos(time), 0.0, math.sin(time)}
+		local m = love.mouse.getX()/640*math.pi*2
+		sun = {math.cos(m), 0.0, math.sin(m)}
 		chunks={}
 	end
 
