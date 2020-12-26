@@ -9,7 +9,7 @@ local max = math.max
 local noise = love.math.noise
 local TAU = math.pi*2
 
-local size = 512
+local size = 4096
 
 local colormap = {}
 local heightmap_2D = {}
@@ -28,7 +28,7 @@ local density = 1.0
 
 local minimap_size = 64
 
-local lx, ly = 320*2, 240*2
+local lx, ly = 512, 512
 
 local canvas_2_data_ptr
 
@@ -123,9 +123,10 @@ function love.load(arg)
 	-- end
 
 	canvas_2 = love.graphics.newImage(canvas_2_data_clear)
+	canvas_2:setFilter("nearest", "nearest")
 
 	pos = vector(0, 0)
-	dir = vector(-1,-1)
+	dir = vector(-1, -1)
 	height = 250
 	-- rot = 0
 	dist = 1500--800
@@ -362,13 +363,13 @@ function love.update(dt)
 	-- print(pos)
 end
 
- function love.wheelmoved(x, y)
-	 if y~=0 then
- 		density = density + 0.1*y
+function love.wheelmoved(x, y)
+	if y~=0 then
+		density = density + 0.1*y
 		if density < 0.1 then density = 0.1 end
- 		chunks={}
- 		vy = 255 / density / (1024 / size)
- 	end
+		chunks={}
+		vy = 255 / density / (1024 / size)
+	end
 end
 
 local val = 1
@@ -378,6 +379,12 @@ function love.keypressed( key, scancode, isrepeat )
 
 	if key == "3" then
 		play_time = not play_time
+	end
+
+	if key == "4" then
+		local img, data = gen_map(1, 1, 10)
+		print(img, data)
+		img:encode("png", "test.png")
 	end
 
 	if key == "escape" or key == "c" then
